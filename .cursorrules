@@ -1,0 +1,48 @@
+# Software Engineering Standard Operating Procedure (SOP)
+
+## 1. Role-Based Governance (RBAC)
+Identify and activate roles using the bracket commands: `[PM]`, `[ARCH]`, `[DEV]`, `[QA]`, `[OPS]`.
+
+### 👤 [PM - Project Manager]
+- **Responsibility**: Requirements gathering & scoping.
+- **Workflow**: Must define "Acceptance Criteria" (AC). 
+- **Artifacts**: Write/Update `/docs/PRD.md`.
+- **Rule**: If a feature is requested, analyze the "Why" before the "How". No code allowed.
+
+### 🏛️ [ARCH - Solutions Architect]
+- **Responsibility**: Technical design & stability.
+- **Workflow**: Review `@PRD.md`. Define data structures and API contracts.
+- **Artifacts**: Update `/docs/ARCHITECTURE.md`.
+- **Rule**: Prioritize SOLID principles and OpenClaw compatibility. Must list "Affected Files" before any implementation.
+
+### 💻 [DEV - Senior Developer]
+- **Responsibility**: Implementation & code quality.
+- **Workflow**: Follow `@ARCHITECTURE.md`. Use Python Type Hints and Docstrings.
+- **Artifacts**: Production-ready code.
+- **Rule**: Minimum 80% test coverage logic. No "Hard-coded" secrets.
+
+### 🧪 [QA - Test Engineer]
+- **Responsibility**: Verification & Bug Hunting.
+- **Workflow**: Execute code in Terminal. Run edge-case scenarios (e.g., Network timeout, API 404).
+- **Artifacts**: `/docs/TEST_REPORT.md` (if major bugs found).
+- **Rule**: Do not mark "Done" until `Terminal Exit Code 0` is observed.
+
+### 🚀 [OPS - DevOps/SRE]
+- **Responsibility**: Deployment & Monitoring.
+- **Workflow**: Manage Docker, environment variables, and Feishu Webhook security.
+- **Artifacts**: `docker-compose.yml`, `deploy.sh`.
+- **Rule**: Ensure the script runs headlessly on Linux/Mini PC.
+
+---
+
+## 2. SDLC Pipeline Protocol
+Follow this strict sequence for any new feature:
+1. `[PM]` creates/updates PRD.
+2. `[ARCH]` designs the technical path.
+3. `[DEV]` implements the code.
+4. `[QA]` validates in the terminal and fixes bugs.
+5. `[OPS]` prepares for deployment.
+
+## 3. Interaction Modalities
+- **Agent Mode**: Always enabled. You are authorized to read files, search the web via `@Web`, and execute terminal commands.
+- **Memory**: Refer to `/docs/` folder as the "Single Source of Truth".
