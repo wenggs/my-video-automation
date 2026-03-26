@@ -3,11 +3,20 @@
 ## PRD v1 (MVP)
 
 ### 1. Product Overview
-This product is a web system that takes local videos, performs automatic editing, generates platform-specific metadata (title/description/hashtags/cover caption/subtitle voiceover script), exports the final videos with platform-matched aspect ratios, and prepares auto-upload to multiple self-media platforms. For MVP, publishing requires a final manual confirmation step on the web UI.
+This product is a web system that takes local videos, performs automatic editing, generates platform-specific metadata (title/description/hashtags/cover caption/subtitle voiceover script), exports the final videos with platform-matched aspect ratios, and prepares auto-upload to self-media platforms. For MVP, publishing requires a final manual confirmation step on the web UI.
+
+**Customer-aligned scope (latest)**:
+- **Configuration**: **scan root** (`input_root`) and **output root** (`output_root`) are first-class **workspace settings** (not hard-coded).
+- **Deployment**: MVP runs **on local Windows** first; Linux headless remains a later OPS target.
+- **Platforms**: **MVP implements Douyin end-to-end** (export + upload automation + manual confirm). **WeChat Video Channel** and **Bilibili** remain in **config/schema** for future phases; they are not required to work in MVP beyond placeholder toggles if present.
+- **Default aspect**: **Portrait / 9:16** for Douyin export unless overridden later.
+- **Browser session**: Operator can log in on the web; **one successful login is persisted** for subsequent automation runs (until session invalidation). No fixed publish copy format required for MVP.
+- **Subtitles / 唱词**: Burn-in subtitles must **全程跟唱词**. **Baseline** text is the song’s **official published lyrics** (运营以官方版为底稿导入). **Operator may 微调** wording or line breaks in the web UI before final export (e.g. live ad-lib, missing/extra line vs studio sheet, clearer line split). **Final on-screen text** = the **operator-confirmed lyric snapshot** after any such edits — **not** ASR/LLM auto-replacement. Timing is aligned to the **edited** audio via **forced alignment** (or equivalent) using ASR/vocal features as **assist only**. Operator supplies the initial official source (see §3.1 / §5).
 
 ### 2. Target User and Primary Use Case
 - Target user: a personal blogger (single operator)
-- Primary workflow: select a local video folder, tag discovered videos, run auto-edit to produce platform-ready outputs, then prepare upload for Douyin / WeChat Video Channel / Bilibili with a manual publish confirmation step in the web UI.
+- Content domain: **concert / live performance** footage (演唱会场景); AI copy and tags should be tuned for this domain (artist, song, venue vibe, non-defamatory hype style).
+- Primary workflow: configure roots, select a local video folder, tag discovered videos, run auto-edit to produce **Douyin-ready** outputs in **9:16**, then prepare upload for **Douyin** with a manual publish confirmation step on the web UI. Additional platforms follow in later milestones.
 
 ### 3. MVP Scope (What We Will Build)
 #### 3.1 Video Discovery & Tagging
@@ -17,6 +26,9 @@ This product is a web system that takes local videos, performs automatic editing
    - Tag type: theme / content type (as the first tag category)
    - Tagging mode: manual selection with AI-assisted suggestions
    - After tagging, videos are searchable by tags for later retrieval.
+4. **Official lyrics attachment (required for burn-in)**:
+   - Per video (or per job), operator provides **官方歌词** via one of: **sidecar file** (e.g. `*.txt`, `*.lrc`, `*.srt` with text only or with coarse timing), **paste in web UI**, or **path under `input_root`** following an agreed naming convention (e.g. `video.mp4` + `video.lyrics.txt` — exact convention in architecture).
+   - **No automatic fetch** of lyrics from third-party databases in MVP (copyright / accuracy); operator is responsible for using an **authorized** official source.
 
 #### 3.2 Automatic Editing (Step A)
 The auto-edit feature will implement:
@@ -25,16 +37,18 @@ The auto-edit feature will implement:
 
 MVP auto-edit produces:
 - A final video with target duration of 30-60 seconds
-- Burn-in subtitles (subtitle text is rendered onto the video)
+- **Burn-in subtitles (全程跟唱词 + 官方底稿 + 允许微调)**: characters shown are the **confirmed lyric text** (starts from imported **官方** source; operator may **微调** in UI). Timing comes from **alignment** of **confirmed** lines to the **edited** vocal track. Default presentation: one or two lines visible at a time with timed swap per aligned segment (implementation detail in architecture).
 - A cover image extracted from the edited result with overlayed cover caption text
 
 #### 3.3 Platform-Matched Export (Step G)
-For each configured platform:
-- Automatically match aspect ratio / resolution (vertical or horizontal) based on that platform’s requirements
+For each **enabled** platform:
+- Automatically match aspect ratio / resolution (vertical or horizontal) based on that platform's requirements
 - Export with platform-specific encoding settings
 
-Platforms in MVP:
-- Douyin
+Platforms — **MVP delivery**:
+- **Douyin**: fully implemented (default **9:16** vertical).
+
+Platforms — **configured for later** (schema / toggles only in MVP; upload adapters not in MVP acceptance):
 - WeChat Video Channel
 - Bilibili
 
@@ -44,7 +58,7 @@ Metadata fields generated by AI for each exported platform variant:
 - Description
 - Topic/Hashtag list
 - Cover caption text
-- Subtitle voiceover script (used for subtitle content generation in the edit pipeline)
+- **Burn-in lyrics are NOT LLM-generated**: they originate from **operator-provided official lyrics**, then **operator-confirmed** (including optional **微调** in UI). AI may assist **only** non-lyric fields above. **LLM must not rewrite, correct, or replace** subtitle wording — human edits in UI are the only permitted text changes to the imported baseline.
 
 Tagging and metadata generation must be editable/reviewable by the operator in the web UI.
 
@@ -68,37 +82,43 @@ Operator requirement:
 
 ### 5. End-to-End MVP Flow
 1. Configure:
-   - Input root directory for local video scanning
-   - Output directory
-   - Platform sessions/credentials needed for browser automation (setup time is expected)
+   - **Input root** directory for local video scanning (`input_root`)
+   - **Output** directory for artifacts and exports (`output_root`)
+   - Enabled platforms (MVP: **Douyin** on; others optional stub)
+   - Platform sessions for browser automation: **persist after first successful login** until invalid (no special publish format required for MVP)
 2. Discover:
    - System scans videos recursively under the input root
 3. Tag:
    - Operator selects theme/content type tags per video; AI assists by suggesting tags
-4. Run Editing Job:
+4. Attach official lyrics (if not already set):
+   - Operator ensures **官方歌词** is linked to the video (file, path convention, or UI paste)
+5. Run Editing Job:
    - Operator triggers "Run MVP pipeline" for a selected video
-5. Generate Assets:
+6. Generate Assets:
    - Voice/transcript understanding
    - Rhythm point cutting
    - 30-60s final edit
    - Burn-in subtitles
    - Extract cover frame and overlay cover caption
-6. Platform Export:
+7. Platform Export:
    - Export platform-specific outputs (aspect ratio matched)
    - Generate platform-specific metadata fields
-7. Web Review & Upload Preparation:
+8. Web Review & Upload Preparation:
    - System prepares platform upload drafts
    - Operator reviews fields on the web page and clicks publish confirmation
-8. Logging & Status:
+9. Logging & Status:
    - Job status and detailed per-step logs are stored and shown in the UI
 
 ### 6. Data Outputs (Artifacts)
 For each job:
-- `transcript` artifact (internal file; used for subtitle/voiceover generation)
+- `official_lyrics` artifact (normalized text parsed from import; **immutable snapshot** of the provided official source)
+- `lyrics_confirmed` artifact (lines after operator **微调** in UI; defaults equal to import; **this** feeds alignment and burn-in)
+- `transcript` artifact (ASR: **editing/cuts** and alignment **assist** — **not** the wording source for captions)
+- `aligned_subtitles` artifact (e.g. ASS/SRT with **confirmed** text + timestamps on the **edited** timeline)
 - `tags` artifact (selected + AI suggested)
-- `metadata` artifact per platform (title/description/hashtags/cover caption/subtitle voiceover script)
+- `metadata` artifact per platform (title/description/hashtags/cover caption — **no** LLM substitute for official lyric body)
 - `cover` image derived from the edited result
-- `subtitle` source text (used to render burn-in subtitles)
+- Burn-in render uses **`aligned_subtitles`** (**confirmed** wording + timestamps); no “ASR subtitle” artifact for display text.
 - `exports`:
   - exported video per platform, aspect ratio matched
 - `job logs`:
@@ -123,48 +143,51 @@ Log granularity should be sufficient to identify the failing step without guessw
   - where the logs are stored
 
 ### 8. User Stories
-1. As a personal blogger, I can set a local folder root, and the system finds all videos for me.
+1. As a personal blogger, I can set **scan root** and **output root** in configuration, and the system finds all videos under the scan root.
 2. As a personal blogger, I can tag each video by theme/content type, with AI suggesting labels, and I can search later by those tags.
-3. As a personal blogger, I can run auto editing to generate a 30-60s vertical/horizontal suitable video for each target platform.
-4. As a personal blogger, I can review AI-generated title/description/hashtags/cover caption and subtitle voiceover script on the web UI.
-5. As a personal blogger, I can prepare uploads and finish publishing with a manual confirm step on the web UI.
+3. As a personal blogger, I can attach **官方歌词** to each video (file, path convention, or paste) before running the pipeline.
+4. As a personal blogger, I can **微调** lyric lines in the UI (on top of the imported official sheet), then run auto editing to generate a **30-60s** **9:16** video suitable for **Douyin** (MVP) with burn-in captions from my **confirmed** lyrics.
+5. As a personal blogger, I can review **alignment preview** (optional) and AI-generated title/description/hashtags/cover caption on the web UI.
+6. As a personal blogger, I can prepare **Douyin** upload and finish publishing with a manual confirm step on the web UI.
 
 ### 9. Acceptance Criteria (MVP)
-For a configured operator account with valid platform sessions, the following must work:
+For a configured operator account with a **valid Douyin session** (persisted after login), the following must work:
 1. Video Discovery:
    - Scanning a folder finds multiple video files under subdirectories.
 2. Tagging:
    - AI suggests theme/content type tags and operator can edit/confirm them.
-3. Editing + Subtitles:
-   - Auto-edit completes for a selected video and outputs a final 30-60s video with burn-in subtitles.
-4. Cover:
+3. Official lyrics + 微调:
+   - Operator can supply **官方歌词** per video; **confirmed** lines default to import and can be **微调** via UI; pipeline rejects burn-in if import missing (clear error).
+4. Editing + Subtitles:
+   - Auto-edit completes for a selected video and outputs a final 30-60s video with burn-in subtitles that **cover the full duration** with **time-synced** captions whose **text matches the operator-confirmed lyric snapshot** (以官方为底 + 允许 UI 微调；全程跟唱词).
+5. Cover:
    - Cover image is generated from the edited result and includes overlayed cover caption text.
-5. Platform Export:
-   - Exports are generated per platform with correct aspect ratio/resolution.
-6. Metadata Generation:
-   - For each platform variant, the UI shows AI-generated title/description/hashtags/cover caption and subtitle voiceover script.
-7. Upload Preparation + Manual Publish:
-   - The system can prepare platform upload drafts and reach a state where the operator can manually confirm publishing on the web UI.
-8. Traceability:
+6. Platform Export:
+   - A **Douyin** export is generated with **9:16** and agreed resolution (see [`ARCHITECTURE.md`](./ARCHITECTURE.md) platform profile).
+7. Metadata Generation:
+   - For the **Douyin** variant, the UI shows AI-generated title/description/hashtags/cover caption (lyric body for burn-in comes from **confirmed** human-edited lyrics pipeline, not from LLM).
+8. Upload Preparation + Manual Publish:
+   - The system can prepare **Douyin** upload drafts and reach a state where the operator can manually confirm publishing on the web UI.
+9. Traceability:
    - Every step produces log records; failed jobs show the failing step and error details.
 
 ### 10. AI Implementation Suggestions (Non-Blocking for MVP)
-The PRD does not lock exact vendors/versions; it defines required behavior:
-- ASR / Transcription:
-  - Use a Whisper-family ASR engine (or equivalent) to produce a time-aligned transcript.
-- Metadata and Script Generation:
-  - Use an LLM to generate structured outputs (JSON) for:
-    - title, description, hashtags/topics
-    - cover caption
-    - subtitle voiceover script
-- Tag Suggestion:
-  - Use an LLM to propose tags from transcript/video understanding, then allow operator confirmation.
+The PRD does not lock exact vendors/versions; it defines required behavior. **Cost vs quality balanced options** (Chinese + concert context) are documented in [`ARCHITECTURE.md`](./ARCHITECTURE.md) section "AI stack suggestions"; summary:
+- **ASR / Transcription**:
+  - Prefer time-aligned transcript for **cutting** and **forced alignment** of **confirmed** lyric lines to audio; **concert audio** is noisy — favor **larger Whisper** (or API) if budget allows. Misalignment is corrected via UI or alignment tuning, **not** by replacing human-confirmed words with ASR guesses.
+- **Metadata Generation**:
+  - Use an LLM to generate structured outputs (JSON) for title, description, hashtags/topics, cover caption only; system prompt encodes **演唱会** domain and compliance (no unverified artist claims). **Do not** use LLM output as on-screen lyric text.
+- **Tag Suggestion**:
+  - Use an LLM to propose tags from transcript understanding, then allow operator confirmation.
 
 ### 11. Open Questions / Risks (To Resolve Before Development)
 - Platform automation stability:
   - Platform anti-bot measures may affect browser automation; we will need session handling and robust UI selectors.
-- Subtitle style:
-  - MVP uses a default burn-in style template; confirm with operator preferences later if needed.
-- Aspect ratio correctness:
-  - Confirm final platform export settings (resolution, fps, audio parameters) based on each platform’s current requirements.
-
+- Subtitle presentation (styling only):
+  - **Content requirement locked**: 全程跟唱词 + time sync; lyric text = **官方底稿 + optional UI 微调 (confirmed snapshot)**. **Visual** defaults (font, stroke, position, max chars per line) use a single built-in template until operator confirms preferences.
+- **Live vs studio lyrics**:
+  - Encore, ad-lib, or reordered verses may not match the imported sheet; operator **微调** lines or timing in UI before export; operator remains responsible for published accuracy and rights.
+- **Rights**:
+  - Operator warrants they have the right to reproduce **official lyrics** in the video for publication; product does not fetch unlicensed lyric databases in MVP.
+- Douyin export parameters:
+  - Lock resolution, fps, audio loudness, and max file size vs Douyin limits (architecture default: 1080x1920 until product confirms).

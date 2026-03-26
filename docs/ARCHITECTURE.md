@@ -11,7 +11,9 @@ This document is the technical architecture draft for the MVP described in [`PRD
 | Local-first video ingest | Backend must run where disks are mounted; paths are authoritative. |
 | Heavy CPU/GPU work (ASR, ffmpeg) | Prefer an async **job** model; web requests enqueue work and poll/stream status. |
 | Per-platform export + metadata | Treat **platform** as a dimension on artifacts and metadata records. |
+| **Douyin-first MVP** | Implement **Douyin** upload adapter + **9:16** export in MVP; `wechat_video` / `bilibili` exist as **config + stubs** until phase 2. |
 | Browser-based upload (PRD) | Isolate **uploader** behind an interface; session state is sensitive and must not leak to logs. |
+| **Persisted browser session** | After operator completes **one** successful platform login, store durable session artifacts (encrypted); reuse until expired. |
 | No automatic retries (MVP) | Fail-fast jobs; rich step logs for post-mortem. |
 | Manual publish confirmation | Separate states: `upload_prepared` vs `published`; user action transitions. |
 
@@ -47,7 +49,7 @@ flowchart LR
   UP --> FS
 ```
 
-**MVP deployment assumption**: single machine (Windows acceptable for dev; Linux headless target per OPS rule). Web UI and worker may share one process initially (monolith) but **logical** boundaries below must remain separable for later split.
+**MVP deployment assumption** (customer-aligned): **local Windows** single machine for development and first production use; Linux headless remains an OPS follow-on. Web UI and worker may share one process initially (monolith) but **logical** boundaries below must remain separable for later split.
 
 ---
 
@@ -73,16 +75,24 @@ Runs pipeline steps sequentially (MVP). Emits structured **step logs** and updat
 ### 3.4 Video Pipeline (`video_pipeline` domain)
 
 - **Discovery**: recursive walk under input root; filter by extension/MIME sniff (implementation detail).
-- **VAD + transcript alignment**: produces time-aligned segments for rhythm cuts.
+- **Official lyrics ingest**: operator-provided **官方歌词** (sidecar file, pasted text, or naming convention under `input_root`). Parsed to **`official_lyrics.json`** (immutable **import snapshot**). **ASR/LLM must not mutate** this import automatically.
+- **Operator 微调 (UI)**: operator may edit line text/breaks in the web UI. Persist as **`lyrics_confirmed`** (defaults copy `official_lyrics` when no edits). **Alignment and burn-in use `lyrics_confirmed` only** (audit: keep both import and confirmed in artifacts per job).
+- **VAD + transcript alignment** (ASR): produces time-aligned segments for **rhythm cuts** and assists **forced alignment**; ASR text is **not** shown as final captions when it conflicts with official lyrics.
 - **Rhythm / speech-based cut**: selects segments to hit **30–60s** target duration (configurable bounds).
-- **Burn-in subtitles**: render text onto video using a **default style template** (PRD).
+- **Forced alignment (post-cut)**:
+  - After the **edited master** (30–60s) exists, align **`lyrics_confirmed`** lines to the **edited** vocal audio using **forced alignment** (e.g. Montreal Forced Aligner, WhisperX-style alignment, or DTW between vocal features and lyric tokens — `[DEV]` spike). Output: `aligned_subtitles` (ASS/SRT) with **only** characters from **confirmed** lines on screen.
+  - If alignment confidence is low or live performance **diverges** from the sheet, surface a **reviewable timeline** in UI for nudge/skip (implementation detail); MVP fails fast only when lyrics are missing or unparseable.
+- **Burn-in subtitles (全程跟唱词 + 官方词)**:
+  - Subtitles span the **entire** final edited timeline; on-screen strings are **exactly** the aligned slices of **`lyrics_confirmed`** (plus display wrapping).
+  - Presentation MVP: **default style** (font, outline, safe margin); **1–2 lines** with timed swap per aligned event.
 - **Cover**: extract frame from **edited** timeline; overlay **cover caption** text.
 - **Platform export**: ffmpeg graph per **platform profile** (resolution, SAR/DAR, fps, audio codec/bitrate).
 
 ### 3.5 AI Adapters (pluggable)
 
-- **ASR**: Whisper-family or equivalent → `transcript` artifact with word/segment timestamps.
-- **LLM**: structured JSON for tags suggestion, metadata per platform, subtitle voiceover script (feeds subtitle renderer).
+- **ASR**: Whisper-family or equivalent → `transcript` artifact with **word- or segment-level timestamps** for **cuts** and **alignment hints**. Final on-screen words come from **`lyrics_confirmed`**, not from ASR verbatim.
+- **LLM**: structured JSON for **tags**, **title/description/hashtags**, **cover caption** only. **Forbidden**: generating or “fixing” lyric wording for burn-in. Optional: suggest **display line breaks** for official text **without** changing characters (same codepoints, only `\n` insertion).
+- **Forced alignment**: may be a **non-LLM** component (signal processing / alignment library); treat as part of `video_pipeline` or `ai/align` per repo layout.
 - Adapters read/write only via **artifact paths** + **redacted prompts** in logs (no secrets, no full raw media in prompts).
 
 ### 3.6 Upload Automation (browser)
@@ -90,7 +100,23 @@ Runs pipeline steps sequentially (MVP). Emits structured **step logs** and updat
 - Uses a dedicated automation driver (e.g. Playwright) per platform implementation.
 - Consumes: exported video file path, metadata fields, cover image path.
 - Produces: `upload_prepared` state with platform-side reference if available (draft id / URL), or a clear failure.
-- **Session handling**: encrypted local storage or OS secret store; never commit cookies to git.
+- **Session handling**: encrypted local storage or OS secret store; never commit cookies to git. **MVP**: after **one** successful login, **persist** session until invalid (operator may re-login from UI when needed).
+
+### 3.7 AI stack suggestions (balanced cost vs quality, Chinese, concert footage)
+
+These are **recommendations**, not vendor locks. Concert audio (crowd noise, PA bleed) is hard; **官方词 + forced alignment** raises the bar on **vocal activity detection, ASR-assisted alignment, and optional vocal separation** — budget skews toward **alignment-quality tools** + **metadata LLM**, not toward “ASR as subtitles.”
+
+| Role | If you want **lowest recurring cost** (local GPU/time) | If you want **low ops + predictable quality** (API $) |
+|------|--------------------------------------------------------|--------------------------------------------------------|
+| **ASR + timestamps** | **[faster-whisper](https://github.com/SYSTRAN/faster-whisper)** with **`large-v3`** (or **`medium`** if GPU VRAM tight); optionally **VAD filter** to reduce hallucinations on music-only stretches. | **OpenAI Audio API** (`whisper-1`) for short clips; or **Alibaba DashScope / FunASR** (strong Chinese, good for noisy speech). |
+| **Tags + title/desc + hashtags + cover copy** (no lyric body) | Run a **small/medium LLM locally** (e.g. **Qwen2.5** family) via Ollama/vLLM — acceptable if you tune prompts. | **OpenAI** `gpt-4.1-mini` or `gpt-4o-mini` (cheap, reliable JSON); domestic: **通义千问 Qwen-Turbo/Plus** or **DeepSeek** (good CN cheap tier). |
+| **Forced align (confirmed lyrics → time)** | Tooling spike: **WhisperX** alignment layer, MFA with known lyrics, or vendor **speech alignment** APIs that accept **fixed text**. | Same, or human-in-the-loop correction in UI when tools fail on live mixes. |
+
+**Practical default pairing (good balance)**:
+- **API path**: `gpt-4o-mini` or `gpt-4.1-mini` (metadata JSON) + **ASR** for cuts/alignment hints + **forced-align spike** (tool TBD) for **official** lyric timestamps.
+- **Local path**: **faster-whisper `large-v3`** (cuts + phoneme/time hints) + **Qwen2.5** (7B–14B) for metadata only — tune prompts for **演唱会**; align **operator-confirmed** lines in a separate alignment step.
+
+**Prompt note**: pass **transcript excerpts + tag hints**, not raw video bytes, to LLM; keep **human review** in UI (PRD).
 
 ---
 
@@ -104,7 +130,8 @@ All IDs are UUID strings unless noted.
 |-------|------|--------|
 | `input_root` | string (path) | User-configured scan root. |
 | `output_root` | string (path) | Artifact root for jobs. |
-| `enabled_platforms` | `Platform[]` | Subset of `douyin`, `wechat_video`, `bilibili`. |
+| `enabled_platforms` | `Platform[]` | MVP default: `[ "douyin" ]`. Schema may include `wechat_video`, `bilibili` (stubs / no acceptance until phase 2). |
+| `default_orientation` | enum | MVP default: `portrait` (**9:16**) for Douyin. |
 | `subtitle_style_id` | string | MVP: single built-in style. |
 | `target_duration_sec` | `{ min: 30, max: 60 }` | MVP default from PRD. |
 
@@ -118,6 +145,10 @@ All IDs are UUID strings unless noted.
 | `discovered_at` | datetime | |
 | `tags_confirmed` | `string[]` | Theme/content type labels. |
 | `tags_suggested` | `string[]` | AI proposals pending confirmation. |
+| `lyrics_source_type` | enum? | `sidecar_file` \| `pasted` \| `convention` (e.g. `*.lyrics.txt` next to video). |
+| `lyrics_sidecar_relative_path` | string? | Relative to `input_root` when using sidecar. |
+| `lyrics_text` | string? | When pasted in DB only (avoid huge blobs in MVP if file preferred). |
+| `lyrics_confirmed_lines` | `string[]`? | Latest UI-edited lines; if null at job start, worker copies `official_lyrics` parse into job artifact as confirmed. |
 
 ### 4.3 `PipelineJob`
 
@@ -136,13 +167,16 @@ Stored under `output_root/jobs/{job_id}/...` with a manifest JSON.
 
 | Kind | Example relative path | Description |
 |------|------------------------|-------------|
-| `transcript` | `artifacts/transcript.json` | Segments + words with timestamps. |
+| `official_lyrics` | `artifacts/official_lyrics.json` | Lines/tokens from **import** (immutable snapshot for audit). |
+| `lyrics_confirmed` | `artifacts/lyrics_confirmed.json` | Lines after operator **微调**; feeds `lyrics_force_align`. |
+| `transcript` | `artifacts/transcript.json` | ASR segments + timestamps (cuts + alignment **support**, not caption source). |
+| `aligned_subtitles` | `artifacts/subtitles.ass` or `.srt` | **Official** text + timestamps on **edited** timeline. |
 | `tags` | `artifacts/tags.json` | Suggested + confirmed snapshot. |
 | `edit_timeline` | `artifacts/timeline.json` | Selected cuts, target duration rationale. |
 | `master_edit` | `video/master.mp4` | Pre-platform master (optional if per-platform diverges early). |
 | `cover` | `images/cover.png` | Frame + caption overlay. |
 | `export` | `exports/{platform}/final.mp4` | Platform-matched encode. |
-| `metadata` | `metadata/{platform}.json` | Title, description, hashtags, cover caption, voiceover script. |
+| `metadata` | `metadata/{platform}.json` | Title, description, hashtags, cover caption (no lyric replacement). |
 | `job_log` | `logs/job.log` | Append-only or structured JSON lines. |
 
 ### 4.5 `PlatformPublishItem`
@@ -171,6 +205,9 @@ Base path: `/api/v1`. Responses JSON. Errors: `{ "error": { "code", "message", "
 | `GET` | `/library/videos` | Query list; filters: `tag`, `q` (path substring). |
 | `GET` | `/library/videos/{id}` | Detail + latest job summary. |
 | `PATCH` | `/library/videos/{id}/tags` | Set `tags_confirmed`; optional merge with suggestions. |
+| `PUT` | `/library/videos/{id}/lyrics` | Body: raw text **or** relative sidecar path under `input_root`; validates parse; resets **confirmed** to match import unless `preserve_confirmed=true`. |
+| `PATCH` | `/library/videos/{id}/lyrics/confirmed` | Body: `{ "lines": string[] }` operator **微调**; validates non-empty. |
+| `GET` | `/library/videos/{id}/lyrics` | Returns **import** preview, **confirmed** lines, and source metadata. |
 | `POST` | `/library/videos/{id}/tags/suggest` | Run AI tag suggestion; returns proposals (does not auto-commit). |
 | `POST` | `/jobs` | Body: `{ "video_asset_id" }` → enqueue `PipelineJob`. |
 | `GET` | `/jobs/{id}` | Job status + artifact manifest pointers. |
@@ -196,9 +233,11 @@ States for `PipelineJob.status`:
 | Step key | Produces |
 |----------|-----------|
 | `discover_validate` | Verify input file readable. |
-| `asr_transcribe` | `transcript.json` |
+| `lyrics_ingest_validate` | `official_lyrics.json` from operator source; **fail** if missing/empty. Snapshot **`lyrics_confirmed.json`** (copy import if no prior UI edits). |
+| `asr_transcribe` | `transcript.json` (cuts + alignment hints) |
 | `tag_suggest` (optional if not pre-run) | updates `tags_suggested` snapshot in artifact |
-| `auto_edit_cut` | `timeline.json`, intermediate render if needed |
+| `auto_edit_cut` | `timeline.json`, intermediate rendered clip (30–60s) |
+| `lyrics_force_align` | `subtitles.ass` / `.srt` mapping **`lyrics_confirmed`** lines to **edited** audio |
 | `subtitle_burnin` | video with burned-in subtitles |
 | `cover_generate` | `cover.png` |
 | `metadata_llm` | `metadata/{platform}.json` for each enabled platform |
@@ -209,15 +248,15 @@ On failure: `status=failed`, `error.step` = failing key, stop pipeline.
 
 ---
 
-## 7. Platform Profiles (encoding matrix — placeholder)
+## 7. Platform Profiles (encoding matrix)
 
-Exact numbers are **TBD** (PRD §11). Store as data-driven config, e.g. `config/platform_profiles.json`:
+Store as data-driven config, e.g. `config/platform_profiles.json`.
 
-| Platform | Target aspect | Typical resolution (draft) | Notes |
-|----------|----------------|----------------------------|--------|
-| Douyin | 9:16 primary | 1080×1920 | Validate max file size/bitrate before upload. |
-| WeChat Video | 9:16 or 16:9 | TBD | Operator may choose orientation in UI later; MVP: pick per platform default. |
-| Bilibili | 16:9 common | 1920×1080 | Long-form platform; still produce MVP 30–60s clip as per PRD. |
+| Platform | Phase | Target aspect | Resolution (MVP default) | Notes |
+|----------|-------|----------------|----------------------------|--------|
+| Douyin | **MVP** | **9:16** | **1080×1920** | Customer default portrait; validate file size/bitrate vs Douyin limits before upload. |
+| WeChat Video | Phase 2 | TBD | TBD | Retain enum + profile slot; adapter not in MVP acceptance. |
+| Bilibili | Phase 2 | TBD | TBD | Retain enum + profile slot; adapter not in MVP acceptance. |
 
 ---
 
@@ -246,7 +285,8 @@ Keep these boundaries **interface-first** so automation agents can orchestrate t
 
 - `IVideoPipeline` — run steps given `job_id` + paths.
 - `IUploadAdapter` — `prepare_draft()` / `publish_confirmed()`.
-- `IAiTagger`, `IAiMetadata` — structured JSON in/out.
+- `IAiTagger`, `IAiMetadata` — structured JSON in/out (metadata only; no lyric invention).
+- `ILyricsAligner` — **`confirmed_lines`** + `edited_audio_path` + optional ASR hints → timed ASS/SRT.
 
 ---
 
@@ -293,13 +333,14 @@ When implementation starts, expect to touch or add:
 
 ## 14. MVP Implementation Sequence (for roadmap)
 
-1. Filesystem scan + persistence + tag API.
+1. Filesystem scan + persistence + tag API (`input_root` / `output_root` from workspace config).
 2. Job skeleton + artifact layout + structured logging.
-3. ASR → transcript artifact.
-4. Cut + duration target + burn-in subtitles + cover.
-5. Per-platform export profiles.
-6. LLM metadata per platform + UI review contract (reuse API models).
-7. Upload adapter: draft preparation + manual confirm publish.
+3. Lyrics ingest API + **lyrics_ingest_validate** step.
+4. ASR → transcript artifact (noisy concert; supports alignment).
+5. Cut + duration target + **lyrics_force_align** + burn-in subtitles + cover.
+6. **Douyin** export profile (**9:16**, 1080×1920) + placeholder profiles for future platforms.
+7. LLM metadata for **Douyin** + UI review contract (reuse API models).
+8. **Douyin** upload adapter: draft preparation + manual confirm publish; stub interfaces for other platforms.
 
 ---
 
