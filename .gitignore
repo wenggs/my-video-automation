@@ -32,3 +32,8 @@ htmlcov/
 # Logs
 *.log
 
+# Local API / job data (default --data-root)
+.local-data/
+.local-data-smoke/
+.local-data-failure/
+

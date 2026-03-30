@@ -219,6 +219,115 @@ Base path: `/api/v1`. Responses JSON. Errors: `{ "error": { "code", "message", "
 
 ---
 
+## 5.1 Lyrics Ingest + Confirm (MVP schema details)
+
+This section fixes the request/response shapes and artifact JSON formats for:
+- `lyrics_ingest_validate` (import snapshot)
+- operator `微调` (confirmed snapshot)
+- `lyrics_force_align` (timed subtitles based on the confirmed snapshot)
+
+### 5.1.1 `PUT /library/videos/{id}/lyrics` (import official lyrics)
+
+Request body (JSON):
+
+```json
+{
+  "mode": "pasted" | "sidecar_file" | "convention",
+  "text": "string (required when mode=pasted)",
+  "sidecar_relative_path": "string (required when mode=sidecar_file)",
+  "preserve_confirmed": true | false
+}
+```
+
+Notes:
+- `mode=convention`: server derives a lyrics file path under `input_root` by an agreed naming rule (exact rule TBD; MVP can start with a simple convention).
+- `preserve_confirmed=false` means: overwrite `lyrics_confirmed` with the imported lines (operator confirmation resets to match import).
+
+Response body (JSON):
+
+```json
+{
+  "video_asset_id": "uuid",
+  "import": { "lines": ["line1", "line2"] },
+  "confirmed": { "lines": ["line1", "line2"], "changed": false },
+  "source": {
+    "mode": "pasted | sidecar_file | convention",
+    "sidecar_relative_path": "string?",
+    "imported_at": "RFC3339 timestamp"
+  }
+}
+```
+
+Fail conditions (MVP):
+- required inputs missing for the selected `mode`
+- parsed `lines` is empty after normalization
+
+### 5.1.2 `PATCH /library/videos/{id}/lyrics/confirmed` (operator micro-tuning)
+
+Request body:
+
+```json
+{
+  "lines": ["line1", "line2"]
+}
+```
+
+Response body:
+
+```json
+{
+  "video_asset_id": "uuid",
+  "confirmed": { "lines": ["line1", "line2"], "changed": true }
+}
+```
+
+Rules:
+- LLM/ASR must not change lyric wording; this endpoint is the only permitted place for user-edited lyric text.
+
+### 5.1.3 `GET /library/videos/{id}/lyrics`
+
+Response body:
+
+```json
+{
+  "video_asset_id": "uuid",
+  "source": {
+    "mode": "pasted | sidecar_file | convention",
+    "sidecar_relative_path": "string?",
+    "imported_at": "RFC3339 timestamp"
+  },
+  "import": { "lines": ["line1", "line2"] },
+  "confirmed": { "lines": ["line1", "line2"], "changed": true }
+}
+```
+
+### 5.1.4 Artifact JSON formats (files under `output_root/jobs/{job_id}/...`)
+
+`official_lyrics.json`:
+
+```json
+{
+  "version": 1,
+  "source": { "mode": "pasted|sidecar_file|convention", "sidecar_relative_path": "string?", "imported_at": "RFC3339" },
+  "lines": ["line1", "line2"]
+}
+```
+
+`lyrics_confirmed.json`:
+
+```json
+{
+  "version": 1,
+  "basis": { "imported_snapshot_id": "string?" },
+  "confirmed_at": "RFC3339 timestamp",
+  "lines": ["line1", "line2"]
+}
+```
+
+`aligned_subtitles`:
+- emitted as `ass` or `srt`
+- every on-screen string must be copied from `lyrics_confirmed.lines` (no LLM rewrite)
+
 ## 6. Job State Machine (pipeline steps)
 
 States for `PipelineJob.status`:
