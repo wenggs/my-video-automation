@@ -24,6 +24,21 @@ UI: open `http://127.0.0.1:8011/ui` to view recent jobs and run Douyin upload pr
 
 `POST /api/v1/jobs` returns **202** and runs the pipeline in a **background thread**; poll **`GET /api/v1/jobs/{id}`** for `queued` → `running` → `succeeded` or `failed`. Optional **`video_relative_path`** (under `--input-root`) triggers **ffmpeg** **`douyin_vertical`** in `artifacts`. **`words_relative_path`** is path-safe under `input_root`.
 
+## Douyin upload Playwright PoC
+
+Spike script (for selector/session validation before full adapter hardening):
+
+```powershell
+python "src/spikes/douyin_upload_playwright_poc.py" --video "D:\path\to\douyin_vertical.mp4"
+```
+
+If Playwright is missing:
+
+```powershell
+pip install playwright
+playwright install chromium
+```
+
 ## Minimal vertical slice (one command)
 
 Given a local video, official lyrics, and word-level ASR JSON (see `tests/fixtures/spike/`), this runs **lyrics align → trim master → shift SRT → 1080×1920 burn-in** into `export/douyin_vertical.mp4`:

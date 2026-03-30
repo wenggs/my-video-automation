@@ -93,7 +93,7 @@ Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8011/api/v1/jobs/<job-id>/
 
 If the job is still `queued` / `running`, it becomes `cancelled`. If it is already `succeeded/failed/cancelled`, the server returns **409**.
 
-### 2.7 Douyin upload prepare/confirm (UI stub)
+### 2.7 Douyin upload prepare/confirm
 
 For MVP, the HTTP API supports a **manual publish confirmation flow** with an upload service adapter.
 

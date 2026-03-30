@@ -22,6 +22,7 @@
 - Phase 11：剪辑成片（trim master + shift SRT）接入同一条竖切 end-to-end（worker 与 CLI 同链路）
 - Phase 12：UI 上传准备/发布确认（stub）+ `GET /ui` 静态页展示最近 job
 - Phase 13：Douyin 上传服务层（manual + Playwright auto-first fallback）接入 prepare API
+- Phase 14 Spike：Playwright 上传页选择器/会话复用 PoC（独立脚本）
 
 ## Todo
 - [x] Recreate required folders and files
@@ -43,4 +44,5 @@
 - [x] Phase 11：剪辑成片（trim master + shift SRT）接入竖切 end-to-end，字幕时间轴保持一致并完成回归
 - [x] Phase 12：UI 上传准备/发布确认（stub）+ `web/ui/index.html` 页面与对应 API
 - [x] Phase 13：上传服务层接入（`DOUYIN_UPLOAD_MODE=auto` + manual fallback）
+- [x] Phase 14 Spike：`src/spikes/douyin_upload_playwright_poc.py` 可独立验证上传流程关键节点
 
