@@ -4,6 +4,7 @@ import json
 import subprocess
 import sys
 import time
+import shutil
 import urllib.error
 import urllib.request
 import uuid
@@ -62,6 +63,8 @@ def wait_health(max_wait_sec: float = 10.0) -> None:
 
 def run() -> None:
     data_root = ROOT / ".local-data-failure"
+    if data_root.exists():
+        shutil.rmtree(data_root)
     data_root.mkdir(parents=True, exist_ok=True)
 
     server_cmd = [
@@ -128,6 +131,11 @@ def run() -> None:
         status, payload = http_json("GET", f"/api/v1/jobs/{job_id}")
         assert status == 200
         assert payload.get("status") == "failed"
+
+        # GET job logs (tail) should exist
+        status, logs_payload = http_json("GET", f"/api/v1/jobs/{job_id}/logs?tail=50")
+        assert status == 200, logs_payload
+        assert logs_payload.get("line_count", 0) > 0, logs_payload
 
         # POST job with missing video file -> failed job (poll); HTTP POST is always 202
         status, payload = http_json(

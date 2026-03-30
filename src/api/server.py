@@ -29,6 +29,9 @@ class ApiHandler(BaseHTTPRequestHandler):
     input_root: Path
     data_root: Path
 
+    # In-flight jobs = queued + running (best-effort based on latest 500 job records).
+    MAX_INFLIGHT_JOBS = 5
+
     def _path_only(self) -> str:
         return self.path.split("?", 1)[0]
 
@@ -101,6 +104,42 @@ class ApiHandler(BaseHTTPRequestHandler):
             except AppError as e:
                 self._send_json(http_status_for_app_error(e.code), e.to_dict())
             return
+
+        # GET /api/v1/jobs/{id}/logs?tail=200
+        m_logs = re.match(r"^/api/v1/jobs/([^/]+)/logs$", po)
+        if m_logs:
+            job_id = m_logs.group(1)
+            tail = 200
+            if "?" in self.path:
+                qs = parse_qs(self.path.split("?", 1)[1], keep_blank_values=False)
+                raw_tail = (qs.get("tail") or [None])[0]
+                if raw_tail is not None:
+                    try:
+                        n = int(raw_tail)
+                        tail = max(0, min(n, 2000))
+                    except ValueError:
+                        tail = 200
+            try:
+                job = self.job_store.get(job_id)
+                output_root = Path(str(job.get("output_root", "")))
+                log_path = output_root / "logs" / "job.log"
+                if not log_path.exists():
+                    raise AppError("JOB_LOG_NOT_FOUND", "job log not found", {"job_id": job_id})
+                lines = log_path.read_text(encoding="utf-8").splitlines()
+                tail_lines = lines[-tail:] if tail > 0 else []
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "job_id": job_id,
+                        "tail": tail,
+                        "line_count": len(lines),
+                        "lines": tail_lines,
+                    },
+                )
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+
         jobs_match = self._match_jobs_route(po)
         if jobs_match:
             job_id, kind = jobs_match
@@ -151,7 +190,31 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send_json(http_status_for_app_error(e.code), e.to_dict())
 
     def do_POST(self) -> None:  # noqa: N802
-        jobs_match = self._match_jobs_route(self._path_only())
+        po = self._path_only()
+
+        # POST /api/v1/jobs/{id}/cancel
+        m_cancel = re.match(r"^/api/v1/jobs/([^/]+)/cancel$", po)
+        if m_cancel:
+            job_id = m_cancel.group(1)
+            try:
+                job = self.job_store.get(job_id)
+                st = str(job.get("status", ""))
+                if st in ("succeeded", "failed", "cancelled"):
+                    self._send_json(
+                        HTTPStatus.CONFLICT,
+                        {"error": {"code": "JOB_ALREADY_TERMINAL", "message": f"job status is {st}"}},
+                    )
+                    return
+                updated = self.job_store.update(
+                    job_id,
+                    {"status": "cancelled", "current_step": "cancelled", "error": None},
+                )
+                self._send_json(HTTPStatus.OK, updated)
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+
+        jobs_match = self._match_jobs_route(po)
         if not jobs_match:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "route not found"}})
             return
@@ -176,6 +239,16 @@ class ApiHandler(BaseHTTPRequestHandler):
             import_lines = lyrics_state.get("import", {}).get("lines", [])
             confirmed_lines = lyrics_state.get("confirmed", {}).get("lines", import_lines)
             source = lyrics_state.get("source", {})
+
+            # Best-effort inflight cap to avoid runaway background tasks.
+            recent_jobs = self.job_store.list_recent(limit=500)
+            inflight = sum(1 for j in recent_jobs if j.get("status") in ("queued", "running"))
+            if inflight >= self.MAX_INFLIGHT_JOBS:
+                self._send_json(
+                    HTTPStatus.TOO_MANY_REQUESTS,
+                    {"error": {"code": "JOB_QUEUE_FULL", "message": "too many queued/running jobs"}},
+                )
+                return
 
             job_id = str(uuid.uuid4())
             now = datetime.now(timezone.utc).isoformat()

@@ -100,6 +100,8 @@ def wait_health(max_wait_sec: float = 10.0) -> None:
 
 def run() -> None:
     data_root = ROOT / ".local-data-smoke"
+    if data_root.exists():
+        shutil.rmtree(data_root)
     data_root.mkdir(parents=True, exist_ok=True)
 
     server_cmd = [
@@ -186,6 +188,13 @@ def run() -> None:
         status, snapshot = http_json("GET", f"/api/v1/jobs/{job_id}")
         assert status == 200, snapshot
         assert snapshot.get("status") == "succeeded"
+
+        # 5) GET job logs (tail)
+        status, logs_payload = http_json("GET", f"/api/v1/jobs/{job_id}/logs?tail=50")
+        assert status == 200, logs_payload
+        assert logs_payload.get("line_count", 0) > 0, logs_payload
+        # First lines usually contain "start lyrics flow"
+        assert any("start lyrics flow" in line for line in logs_payload.get("lines", [])), logs_payload
 
         status, job_list = http_json("GET", "/api/v1/jobs?limit=5")
         assert status == 200, job_list

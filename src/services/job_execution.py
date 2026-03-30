@@ -23,11 +23,20 @@ def run_lyrics_export_job(
     source: Dict[str, Any],
 ) -> None:
     """Background worker: lyrics align, optional 9:16 burn-in. Updates job_store."""
+    def is_cancelled() -> bool:
+        # JobStore is file-based; treat each check as authoritative.
+        try:
+            return job_store.get(job_id).get("status") == "cancelled"
+        except Exception:
+            # If job JSON disappears/corrupts, don't block progress in the worker.
+            return False
+
     output_root = data_root / "jobs-run" / job_id
-    job_store.update(
-        job_id,
-        {"status": "running", "current_step": "discover_validate"},
-    )
+    if is_cancelled():
+        job_store.update(job_id, {"status": "cancelled", "current_step": "cancelled", "error": None})
+        return
+
+    job_store.update(job_id, {"status": "running", "current_step": "discover_validate"})
     video_file: Path | None = None
     try:
         words_file = resolve_safe_under_root(input_root, words_relative_path)
@@ -49,6 +58,10 @@ def run_lyrics_export_job(
             import_lines_override=import_lines,
             confirmed_lines_override=confirmed_lines,
         )
+        if is_cancelled():
+            job_store.update(job_id, {"status": "cancelled", "current_step": "cancelled", "error": None})
+            return
+
         artifacts: Dict[str, str] = {
             "official_lyrics": str(result.official_lyrics_path),
             "lyrics_confirmed": str(result.confirmed_lyrics_path),
@@ -63,6 +76,11 @@ def run_lyrics_export_job(
                 output_video=export_path,
             )
             artifacts["douyin_vertical"] = str(export_path)
+
+        if is_cancelled():
+            job_store.update(job_id, {"status": "cancelled", "current_step": "cancelled", "error": None})
+            return
+
         job_store.update(
             job_id,
             {
@@ -72,6 +90,9 @@ def run_lyrics_export_job(
             },
         )
     except AppError as e:
+        if is_cancelled():
+            job_store.update(job_id, {"status": "cancelled", "current_step": "cancelled", "error": None})
+            return
         job_store.update(
             job_id,
             {
@@ -81,6 +102,9 @@ def run_lyrics_export_job(
             },
         )
     except Exception as e:  # pragma: no cover - last resort
+        if is_cancelled():
+            job_store.update(job_id, {"status": "cancelled", "current_step": "cancelled", "error": None})
+            return
         job_store.update(
             job_id,
             {

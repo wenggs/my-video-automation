@@ -18,6 +18,7 @@
 - Phase 7b：`POST /api/v1/jobs` 支持可选 `video_relative_path`，成功后 `artifacts.douyin_vertical`；`common/paths.py` 防止路径穿越；冒烟/失败单测覆盖
 - Phase 8：`GET /api/v1/config`、`GET /api/v1/library/videos`（`library_scan`）、`GET /api/v1/jobs` 列表；`words_relative_path` 与视频一致做安全解析；`JobStore.list_recent`
 - Phase 9：**异步 Job** — `POST /api/v1/jobs` 返回 **202**，`services/job_execution.py` 后台线程执行对齐/导出；失败码写入 job 记录，`GET /jobs/{id}` **200** 读终端状态
+- Phase 10：异步 Job 的工程化补齐（轮询示例、`GET /api/v1/jobs/{id}/logs`、`POST /api/v1/jobs/{id}/cancel`、并发上限 429）
 
 ## Todo
 - [x] Recreate required folders and files
@@ -35,4 +36,5 @@
 - [x] Phase 7b：`/jobs` 接入竖切导出与路径校验、回归测试
 - [x] Phase 8：工作区与素材发现 API（config / library scan / jobs 列表）+ `words` 路径安全
 - [x] Phase 9：`POST /jobs` 异步入队（202 + 轮询），流水线错误体现在 job JSON
+- [x] Phase 10：logs/cancel/队列上限/轮询示例（docs + 回归测试）
 

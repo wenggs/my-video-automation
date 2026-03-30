@@ -63,6 +63,36 @@ $r = Invoke-WebRequest -Method Post -Uri $jobs -ContentType 'application/json' -
 Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8011/api/v1/jobs/<job-id>'
 ```
 
+PowerShell polling loop:
+
+```powershell
+$jobId = '<job-id>'
+while ($true) {
+  $j = Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8011/api/v1/jobs/$jobId"
+  if ($j.status -in @('succeeded','failed','cancelled')) { break }
+  Start-Sleep -Milliseconds 300
+}
+Write-Host $j.status
+```
+
+### 2.5 Get job logs (tail)
+
+```powershell
+Invoke-RestMethod -Method Get -Uri "http://127.0.0.1:8011/api/v1/jobs/<job-id>/logs?tail=200"
+```
+
+Response shape:
+- `lines`: string[] (JSONL lines as strings), only last `tail` lines
+- `line_count`: total lines in `logs/job.log`
+
+### 2.6 Cancel job
+
+```powershell
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8011/api/v1/jobs/<job-id>/cancel"
+```
+
+If the job is still `queued` / `running`, it becomes `cancelled`. If it is already `succeeded/failed/cancelled`, the server returns **409**.
+
 ## 3. Minimal vertical slice (CLI, requires ffmpeg)
 
 From repo root, with a real `--video` path and the same fixture lyrics/words as §2.1–2.3:
@@ -105,6 +135,7 @@ These codes are returned for synchronous routes and for the **`POST /api/v1/jobs
 | HTTP | Typical `error.code` | When |
 |------|----------------------|------|
 | **202** | (job body, not `error` envelope) | **`POST /api/v1/jobs`** job enqueued; body includes `id`, `status`: `queued` (then poll) |
+| **429** | `JOB_QUEUE_FULL` | Server inflight cap reached (too many `queued`/`running` jobs) |
 | **404** | `JOB_NOT_FOUND`, `LYRICS_STATE_NOT_FOUND` | Unknown job id; lyrics never imported for that `video_asset_id` (**before** job create); route not found |
 | **422** | (legacy) | Not used for **`POST /jobs`** completion; pipeline **`WORDS_FILE_NOT_FOUND`**, **`VIDEO_FILE_NOT_FOUND`**, etc. appear on the **job** JSON with **`status`: `failed`** |
 | **400** | e.g. `INVALID_JSON`, `MISSING_VIDEO_ID`, … | Bad JSON or missing `video_asset_id` on **POST** (no job row). **`RELATIVE_PATH_INVALID`** after enqueue is stored on the job; **POST** still **202** |
