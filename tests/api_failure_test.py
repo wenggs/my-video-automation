@@ -113,6 +113,34 @@ def run() -> None:
         assert status == 200
         assert payload.get("status") == "failed"
 
+        # POST job with missing video file -> 422 after lyrics step succeeds
+        status, payload = http_json(
+            "POST",
+            "/api/v1/jobs",
+            {
+                "video_asset_id": vid,
+                "words_relative_path": "transcript_words.json",
+                "video_relative_path": "this_video_does_not_exist.mp4",
+            },
+        )
+        assert status == 422, payload
+        assert payload.get("status") == "failed"
+        assert payload.get("error", {}).get("code") == "VIDEO_FILE_NOT_FOUND"
+
+        # Path escapes input_root -> 400, job failed
+        status, payload = http_json(
+            "POST",
+            "/api/v1/jobs",
+            {
+                "video_asset_id": vid,
+                "words_relative_path": "transcript_words.json",
+                "video_relative_path": "..\\official_lyrics.txt",
+            },
+        )
+        assert status == 400, payload
+        assert payload.get("status") == "failed"
+        assert payload.get("error", {}).get("code") == "RELATIVE_PATH_INVALID"
+
         print("API failure regression passed.")
     finally:
         server.terminate()

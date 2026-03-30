@@ -5,6 +5,7 @@ from pathlib import Path
 
 from common.errors import AppError
 from services.lyrics_service import run_lyrics_flow_service
+from services.video_export_service import export_douyin_vertical_burn_in
 
 
 def parse_args() -> argparse.Namespace:
@@ -16,6 +17,25 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--words", required=True, type=Path, help="ASR words json path")
     p.add_argument("--output", required=True, type=Path, help="job output root")
     p.add_argument(
+        "--preserve-confirmed",
+        action="store_true",
+        help="keep existing confirmed snapshot if present",
+    )
+
+    v = sub.add_parser(
+        "vertical-slice",
+        help="lyrics align + 9:16 burn-in export (minimal Douyin-shaped demo)",
+    )
+    v.add_argument("--video", required=True, type=Path, help="source video file")
+    v.add_argument("--lyrics", required=True, type=Path, help="official lyrics txt path")
+    v.add_argument("--words", required=True, type=Path, help="ASR words json path")
+    v.add_argument("--output", required=True, type=Path, help="job output root (artifacts + export/)")
+    v.add_argument(
+        "--export-name",
+        default="douyin_vertical.mp4",
+        help="filename under output/export/",
+    )
+    v.add_argument(
         "--preserve-confirmed",
         action="store_true",
         help="keep existing confirmed snapshot if present",
@@ -37,6 +57,28 @@ if __name__ == "__main__":
             print(f"confirmed lyrics artifact: {result.confirmed_lyrics_path}")
             print(f"aligned subtitles: {result.subtitles_path}")
             print(f"job log: {result.log_path}")
+        except AppError as e:
+            print(e.to_dict())
+            raise SystemExit(1)
+    elif args.cmd == "vertical-slice":
+        try:
+            lyrics_result = run_lyrics_flow_service(
+                lyrics_file=args.lyrics,
+                words_file=args.words,
+                output_root=args.output,
+                preserve_confirmed=args.preserve_confirmed,
+            )
+            export_path = args.output / "export" / args.export_name
+            export_douyin_vertical_burn_in(
+                input_video=args.video,
+                subtitles_srt=lyrics_result.subtitles_path,
+                output_video=export_path,
+            )
+            print(f"official lyrics artifact: {lyrics_result.official_lyrics_path}")
+            print(f"confirmed lyrics artifact: {lyrics_result.confirmed_lyrics_path}")
+            print(f"aligned subtitles: {lyrics_result.subtitles_path}")
+            print(f"vertical export (9:16 burn-in): {export_path}")
+            print(f"job log: {lyrics_result.log_path}")
         except AppError as e:
             print(e.to_dict())
             raise SystemExit(1)

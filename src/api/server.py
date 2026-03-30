@@ -15,7 +15,9 @@ from typing import Any, Dict, Tuple
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from common.errors import AppError, http_status_for_app_error
+from common.paths import resolve_safe_under_root
 from services.lyrics_service import run_lyrics_flow_service
+from services.video_export_service import export_douyin_vertical_burn_in
 from storage.job_store import JobStore
 from storage.lyrics_store import LyricsStore
 
@@ -127,6 +129,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             if not video_id:
                 raise AppError("MISSING_VIDEO_ID", "video_asset_id is required")
             words_relative_path = str(payload.get("words_relative_path", "transcript_words.json"))
+            video_rel_raw = payload.get("video_relative_path")
+            video_rel = str(video_rel_raw).strip() if video_rel_raw is not None else ""
 
             try:
                 lyrics_state = self.store.get_lyrics(video_id)
@@ -153,7 +157,16 @@ class ApiHandler(BaseHTTPRequestHandler):
             self.job_store.create(job_record)
 
             words_file = self.input_root / words_relative_path
+            video_file: Path | None = None
             try:
+                if video_rel:
+                    video_file = resolve_safe_under_root(self.input_root, video_rel)
+                    if not video_file.is_file():
+                        raise AppError(
+                            "VIDEO_FILE_NOT_FOUND",
+                            "input video does not exist",
+                            {"video_file": str(video_file)},
+                        )
                 result = run_lyrics_flow_service(
                     lyrics_file=None,
                     words_file=words_file,
@@ -164,17 +177,26 @@ class ApiHandler(BaseHTTPRequestHandler):
                     import_lines_override=import_lines,
                     confirmed_lines_override=confirmed_lines,
                 )
+                artifacts: Dict[str, str] = {
+                    "official_lyrics": str(result.official_lyrics_path),
+                    "lyrics_confirmed": str(result.confirmed_lyrics_path),
+                    "aligned_subtitles": str(result.subtitles_path),
+                    "job_log": str(result.log_path),
+                }
+                if video_file is not None:
+                    export_path = output_root / "export" / "douyin_vertical.mp4"
+                    export_douyin_vertical_burn_in(
+                        input_video=video_file,
+                        subtitles_srt=result.subtitles_path,
+                        output_video=export_path,
+                    )
+                    artifacts["douyin_vertical"] = str(export_path)
                 updated = self.job_store.update(
                     job_id,
                     {
                         "status": "succeeded",
                         "current_step": "completed",
-                        "artifacts": {
-                            "official_lyrics": str(result.official_lyrics_path),
-                            "lyrics_confirmed": str(result.confirmed_lyrics_path),
-                            "aligned_subtitles": str(result.subtitles_path),
-                            "job_log": str(result.log_path),
-                        },
+                        "artifacts": artifacts,
                     },
                 )
                 self._send_json(HTTPStatus.OK, updated)

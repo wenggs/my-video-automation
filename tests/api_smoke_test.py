@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 import subprocess
 import sys
 import time
@@ -10,6 +11,39 @@ from pathlib import Path
 
 
 ROOT = Path(__file__).resolve().parents[1]
+SPIKE = ROOT / "tests" / "fixtures" / "spike"
+SMOKE_CLIP = SPIKE / "_smoke_sample.mp4"
+
+
+def ensure_smoke_clip_relative_path() -> str | None:
+    if not shutil.which("ffmpeg"):
+        return None
+    if not SMOKE_CLIP.is_file():
+        subprocess.run(
+            [
+                "ffmpeg",
+                "-hide_banner",
+                "-loglevel",
+                "error",
+                "-y",
+                "-f",
+                "lavfi",
+                "-i",
+                "testsrc=size=1280x720:rate=30:duration=8",
+                "-f",
+                "lavfi",
+                "-i",
+                "sine=frequency=440:sample_rate=48000:duration=8",
+                "-pix_fmt",
+                "yuv420p",
+                "-shortest",
+                str(SMOKE_CLIP),
+            ],
+            check=True,
+        )
+    return "_smoke_sample.mp4"
+
+
 PORT = 8012
 BASE = f"http://127.0.0.1:{PORT}"
 VIDEO_ID = "smoke-video-001"
@@ -87,11 +121,16 @@ def run() -> None:
         assert status == 200, payload
         assert payload.get("confirmed", {}).get("changed") is True
 
+        clip_rel = ensure_smoke_clip_relative_path()
+        job_body: dict = {"video_asset_id": VIDEO_ID, "words_relative_path": "transcript_words.json"}
+        if clip_rel:
+            job_body["video_relative_path"] = clip_rel
+
         # 3) POST job
         status, payload = http_json(
             "POST",
             "/api/v1/jobs",
-            {"video_asset_id": VIDEO_ID, "words_relative_path": "transcript_words.json"},
+            job_body,
         )
         assert status == 200, payload
         assert payload.get("status") == "succeeded", payload
@@ -107,6 +146,10 @@ def run() -> None:
             p = artifacts.get(key)
             assert p, f"missing artifact key={key}"
             assert Path(p).exists(), f"artifact file not found: {p}"
+        if clip_rel:
+            dv = artifacts.get("douyin_vertical")
+            assert dv, "expected douyin_vertical artifact when video_relative_path is set"
+            assert Path(str(dv)).exists(), dv
 
         print("API smoke test passed.")
     finally:

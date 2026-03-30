@@ -4,7 +4,8 @@ Local-first pipeline MVP: lyrics ingest and confirmation, forced alignment to wo
 
 ## Requirements
 
-- **Python 3.10+** (stdlib only for the current API and tests)
+- **Python 3.10+** (stdlib for the API and most tests)
+- **ffmpeg** on `PATH` for the **vertical-slice** export (9:16 + burn-in)
 
 ## Quick start
 
@@ -16,6 +17,18 @@ Local-first pipeline MVP: lyrics ingest and confirmation, forced alignment to wo
 
 2. Follow **[docs/DEMO.md](docs/DEMO.md)** for example `PUT` / `PATCH` / `POST` calls and expected artifacts.
 
+`POST /api/v1/jobs` accepts optional **`video_relative_path`** (under `--input-root`). With **ffmpeg** available, the job adds **`douyin_vertical`** in `artifacts` (1080×1920 burn-in).
+
+## Minimal vertical slice (one command)
+
+Given a local video, official lyrics, and word-level ASR JSON (see `tests/fixtures/spike/`), this runs **lyrics align → `subtitles.srt` → 1080×1920 burn-in** into `export/douyin_vertical.mp4`:
+
+```powershell
+python "src/video_pipeline.py" vertical-slice --video "D:\path\to\clip.mp4" --lyrics "tests/fixtures/spike/official_lyrics.txt" --words "tests/fixtures/spike/transcript_words.json" --output ".local-data\jobs-run\demo-vs-001"
+```
+
+Artifacts land under `--output`: `artifacts/`, `export/`, `logs/`.
+
 ## Tests
 
 Automated regression (starts its own server on ephemeral ports):
@@ -23,6 +36,7 @@ Automated regression (starts its own server on ephemeral ports):
 ```powershell
 python "tests/api_smoke_test.py"
 python "tests/api_failure_test.py"
+python "tests/vertical_slice_test.py"
 ```
 
 ## Documentation

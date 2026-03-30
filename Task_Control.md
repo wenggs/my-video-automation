@@ -14,6 +14,8 @@
 - Phase 4 Execute（里程碑2）：已实现 `POST /api/v1/jobs` + `GET /api/v1/jobs/{id}`，可触发 lyrics_flow_service 并返回作业产物路径
 - Phase 5 Execute：已补 `tests/api_smoke_test.py` 自动化回归脚本，并新增 `docs/DEMO.md` 演示说明
 - Phase 6 Execute：已补充 `tests/api_failure_test.py`（404/422 失败路径）、HTTP 状态映射说明见 `docs/DEMO.md` §5，仓库根 `README.md` 快速接入
+- Phase 7 Execute（最小竖切）：`video_pipeline vertical-slice` — 歌词对齐 + ffmpeg 1080×1920 字幕烧录；`services/video_export_service.py`；`tests/vertical_slice_test.py`（依赖本机 ffmpeg）
+- Phase 7b：`POST /api/v1/jobs` 支持可选 `video_relative_path`，成功后 `artifacts.douyin_vertical`；`common/paths.py` 防止路径穿越；冒烟/失败单测覆盖
 
 ## Todo
 - [x] Recreate required folders and files
@@ -27,4 +29,6 @@
 - [x] Phase 4 Execute（里程碑2）：将 /jobs 流程接入 API（触发 lyrics_flow_service 并回传作业状态）
 - [x] Phase 5 Execute：补最小自动化测试脚本（API 回归）并准备首个可演示版本说明
 - [x] Phase 6 Execute：补充 /jobs 失败场景回归与返回码映射（400/404/422），并整理 README 接入指南
+- [x] Phase 7 Execute：最小可演示竖切（本地视频 + 官方词 + 词级 JSON → 9:16 烧录成片）
+- [x] Phase 7b：`/jobs` 接入竖切导出与路径校验、回归测试
 
