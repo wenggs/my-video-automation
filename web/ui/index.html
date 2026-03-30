@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Video Automation MVP - Jobs</title>
+    <style>
+      body { font-family: Arial, Helvetica, sans-serif; padding: 16px; background: #fafafa; }
+      h1 { font-size: 18px; margin: 0 0 12px; }
+      .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; margin: 10px 0; }
+      button { padding: 8px 12px; border: 1px solid #ccc; background: #fff; border-radius: 6px; cursor: pointer; }
+      button[disabled] { opacity: 0.45; cursor: not-allowed; }
+      table { width: 100%; border-collapse: collapse; background: white; }
+      th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; vertical-align: top; }
+      code { background: #f3f3f3; padding: 2px 6px; border-radius: 6px; }
+      .muted { color: #666; font-size: 12px; }
+      .status { font-weight: bold; }
+      .card { border: 1px solid #eee; border-radius: 10px; padding: 12px; background: white; }
+      .err { color: #b00020; white-space: pre-wrap; }
+      .ok { color: #0b6; white-space: pre-wrap; }
+    </style>
+  </head>
+  <body>
+    <h1>Video Automation MVP - Jobs</h1>
+
+    <div class="row">
+      <button id="btnRefresh">Refresh</button>
+      <span class="muted">UI uses backend stubs for upload (open/confirm transitions only).</span>
+    </div>
+
+    <div id="msg" class="muted"></div>
+
+    <div class="card" style="margin-top: 12px;">
+      <table>
+        <thead>
+          <tr>
+            <th style="width: 180px;">job</th>
+            <th style="width: 120px;">status</th>
+            <th>artifacts / douyin publish</th>
+            <th style="width: 220px;">actions</th>
+          </tr>
+        </thead>
+        <tbody id="jobsBody"></tbody>
+      </table>
+    </div>
+
+    <script>
+      const API_BASE = '/api/v1';
+
+      function shortId(id) {
+        if (!id) return '';
+        return String(id).slice(0, 8) + '…';
+      }
+
+      async function fetchJson(url, opts) {
+        const res = await fetch(url, opts);
+        const text = await res.text();
+        const json = text ? JSON.parse(text) : {};
+        if (!res.ok) {
+          const err = json && json.error ? json.error : { code: 'HTTP_' + res.status, message: text };
+          throw new Error(err.code + ': ' + err.message);
+        }
+        return json;
+      }
+
+      async function loadJobs() {
+        const data = await fetchJson(API_BASE + '/jobs?limit=20');
+        return data.items || [];
+      }
+
+      function renderJob(job) {
+        const artifacts = job.artifacts || {};
+        const publish = job.publish || {};
+        const douyin = publish.douyin || {};
+        const douyinState = douyin.state || '';
+
+        const hasVideo = Boolean(artifacts.douyin_vertical);
+        const canPrepare = job.status === 'succeeded' && hasVideo && (!douyinState || douyinState === 'not_prepared');
+        const canConfirm = douyinState === 'upload_prepared';
+
+        const preparedUrl = douyin.draft_url ? String(douyin.draft_url) : '';
+
+        return `
+          <tr>
+            <td>
+              <div><span class="status">${shortId(job.id)}</span></div>
+              <div class="muted">${job.current_step || ''}</div>
+            </td>
+            <td><span class="status">${job.status || ''}</span></td>
+            <td>
+              <div><b>douyin_vertical:</b> ${hasVideo ? '<code>yes</code>' : '<code>missing</code>'}</div>
+              <div><b>publish.douyin:</b> <code>${douyinState || '-'}</code></div>
+              ${preparedUrl ? `<div style="margin-top:6px;"><a href="${preparedUrl}" target="_blank">Open prepared draft</a></div>` : ''}
+            </td>
+            <td>
+              <div class="row" style="margin:0;">
+                <button ${canPrepare ? '' : 'disabled'} onclick="window.__prepare('${job.id}')">Prepare upload</button>
+                <button ${canConfirm ? '' : 'disabled'} onclick="window.__confirm('${job.id}')">Confirm publish</button>
+              </div>
+              <div class="muted" style="margin-top:6px;">
+                <a href="${API_BASE}/jobs/${job.id}/logs?tail=80" target="_blank">logs</a>
+              </div>
+            </td>
+          </tr>
+        `;
+      }
+
+      async function refresh() {
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Loading...';
+        try {
+          const jobs = await loadJobs();
+          const body = document.getElementById('jobsBody');
+          body.innerHTML = jobs.map(renderJob).join('');
+          msg.textContent = 'OK';
+        } catch (e) {
+          msg.textContent = 'Error: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
+      window.__prepare = async function(jobId) {
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Preparing...';
+        try {
+          await fetchJson(API_BASE + `/jobs/${jobId}/publish/douyin/prepare`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({}),
+          });
+          msg.textContent = 'Prepared.';
+          msg.className = 'ok';
+          await refresh();
+        } catch (e) {
+          msg.textContent = 'Prepare failed: ' + e.message;
+          msg.className = 'err';
+        }
+      };
+
+      window.__confirm = async function(jobId) {
+        const msg = document.getElementById('msg');
+        msg.textContent = 'Confirming...';
+        try {
+          await fetchJson(API_BASE + `/jobs/${jobId}/publish/douyin/confirm`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({}),
+          });
+          msg.textContent = 'Published (stub).';
+          msg.className = 'ok';
+          await refresh();
+        } catch (e) {
+          msg.textContent = 'Confirm failed: ' + e.message;
+          msg.className = 'err';
+        }
+      };
+
+      document.getElementById('btnRefresh').addEventListener('click', refresh);
+      refresh();
+    </script>
+  </body>
+</html>
+

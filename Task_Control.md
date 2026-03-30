@@ -20,6 +20,7 @@
 - Phase 9：**异步 Job** — `POST /api/v1/jobs` 返回 **202**，`services/job_execution.py` 后台线程执行对齐/导出；失败码写入 job 记录，`GET /jobs/{id}` **200** 读终端状态
 - Phase 10：异步 Job 的工程化补齐（轮询示例、`GET /api/v1/jobs/{id}/logs`、`POST /api/v1/jobs/{id}/cancel`、并发上限 429）
 - Phase 11：剪辑成片（trim master + shift SRT）接入同一条竖切 end-to-end（worker 与 CLI 同链路）
+- Phase 12：UI 上传准备/发布确认（stub）+ `GET /ui` 静态页展示最近 job
 
 ## Todo
 - [x] Recreate required folders and files
@@ -39,4 +40,5 @@
 - [x] Phase 9：`POST /jobs` 异步入队（202 + 轮询），流水线错误体现在 job JSON
 - [x] Phase 10：logs/cancel/队列上限/轮询示例（docs + 回归测试）
 - [x] Phase 11：剪辑成片（trim master + shift SRT）接入竖切 end-to-end，字幕时间轴保持一致并完成回归
+- [x] Phase 12：UI 上传准备/发布确认（stub）+ `web/ui/index.html` 页面与对应 API
 

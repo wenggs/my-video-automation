@@ -6,6 +6,7 @@ import re
 import sys
 import threading
 import uuid
+import mimetypes
 from datetime import datetime, timezone
 from urllib.parse import parse_qs
 from http import HTTPStatus
@@ -31,6 +32,8 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     # In-flight jobs = queued + running (best-effort based on latest 500 job records).
     MAX_INFLIGHT_JOBS = 5
+    _PROJECT_ROOT = Path(__file__).resolve().parents[2]
+    _UI_DIR = _PROJECT_ROOT / "web" / "ui"
 
     def _path_only(self) -> str:
         return self.path.split("?", 1)[0]
@@ -55,6 +58,52 @@ class ApiHandler(BaseHTTPRequestHandler):
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
+
+    def _send_text(self, status: int, text: str, content_type: str = "text/plain; charset=utf-8") -> None:
+        body = text.encode("utf-8")
+        self.send_response(status)
+        self.send_header("Content-Type", content_type)
+        self.send_header("Content-Length", str(len(body)))
+        self.end_headers()
+        self.wfile.write(body)
+
+    def _try_send_ui_index(self) -> bool:
+        po = self._path_only()
+        if po not in ("/", "/ui", "/ui/"):
+            return False
+        index_path = self._UI_DIR / "index.html"
+        if not index_path.exists():
+            self._send_text(HTTPStatus.NOT_FOUND, "UI index.html not found", "text/plain; charset=utf-8")
+            return True
+        content = index_path.read_text(encoding="utf-8")
+        self._send_text(HTTPStatus.OK, content, "text/html; charset=utf-8")
+        return True
+
+    def _try_send_ui_static(self) -> bool:
+        po = self._path_only()
+        if not po.startswith("/ui/"):
+            return False
+        rel = po[len("/ui/"):]
+        if not rel or "/" in rel or "\\" in rel or ".." in rel:
+            self._send_text(HTTPStatus.NOT_FOUND, "UI asset not found", "text/plain; charset=utf-8")
+            return True
+        fp = (self._UI_DIR / rel).resolve()
+        try:
+            fp.relative_to(self._UI_DIR.resolve())
+        except ValueError:
+            self._send_text(HTTPStatus.NOT_FOUND, "UI asset not found", "text/plain; charset=utf-8")
+            return True
+        if not fp.exists() or not fp.is_file():
+            self._send_text(HTTPStatus.NOT_FOUND, "UI asset not found", "text/plain; charset=utf-8")
+            return True
+        data = fp.read_bytes()
+        ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
+        self.send_response(HTTPStatus.OK)
+        self.send_header("Content-Type", ctype)
+        self.send_header("Content-Length", str(len(data)))
+        self.end_headers()
+        self.wfile.write(data)
+        return True
 
     def _read_json(self) -> Dict[str, Any]:
         length = int(self.headers.get("Content-Length", "0"))
@@ -84,6 +133,10 @@ class ApiHandler(BaseHTTPRequestHandler):
         return m.group(1), "item"
 
     def do_GET(self) -> None:  # noqa: N802
+        if self._try_send_ui_index():
+            return
+        if self._try_send_ui_static():
+            return
         if self._path_only() == "/health":
             self._send_json(HTTPStatus.OK, {"status": "ok"})
             return
@@ -192,6 +245,20 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         po = self._path_only()
 
+        # POST /api/v1/jobs/{id}/publish/{platform}/prepare
+        m_prepare = re.match(r"^/api/v1/jobs/([^/]+)/publish/([^/]+)/prepare$", po)
+        if m_prepare:
+            job_id, platform = m_prepare.group(1), m_prepare.group(2)
+            self._handle_publish(job_id=job_id, platform=platform, action="prepare")
+            return
+
+        # POST /api/v1/jobs/{id}/publish/{platform}/confirm
+        m_confirm = re.match(r"^/api/v1/jobs/([^/]+)/publish/([^/]+)/confirm$", po)
+        if m_confirm:
+            job_id, platform = m_confirm.group(1), m_confirm.group(2)
+            self._handle_publish(job_id=job_id, platform=platform, action="confirm")
+            return
+
         # POST /api/v1/jobs/{id}/cancel
         m_cancel = re.match(r"^/api/v1/jobs/([^/]+)/cancel$", po)
         if m_cancel:
@@ -286,6 +353,69 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send_json(HTTPStatus.ACCEPTED, self.job_store.get(job_id))
         except AppError as e:
             self._send_json(http_status_for_app_error(e.code), e.to_dict())
+
+    def _handle_publish(self, *, job_id: str, platform: str, action: str) -> None:
+        try:
+            job = self.job_store.get(job_id)
+        except AppError as e:
+            self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+
+        if platform != "douyin":
+            self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "publish platform not supported"}})
+            return
+
+        if job.get("status") != "succeeded":
+            self._send_json(
+                HTTPStatus.CONFLICT,
+                {"error": {"code": "JOB_NOT_SUCCEEDED", "message": "job must be succeeded before publish actions"}},
+            )
+            return
+
+        artifacts = job.get("artifacts") or {}
+        video_path = artifacts.get("douyin_vertical")
+        if not video_path:
+            self._send_json(
+                HTTPStatus.UNPROCESSABLE_ENTITY,
+                {"error": {"code": "ARTIFACT_MISSING", "message": "missing artifacts.douyin_vertical for douyin publish"}},
+            )
+            return
+
+        now = datetime.now(timezone.utc).isoformat()
+        publish = job.get("publish") or {}
+        douyin = publish.get("douyin") or {}
+        draft_url = Path(video_path).resolve().as_uri()
+
+        if action == "prepare":
+            douyin = {
+                "state": "upload_prepared",
+                "prepared_at": now,
+                "draft_url": draft_url,
+                "video_path": video_path,
+                "manual_confirm_required": True,
+            }
+            publish["douyin"] = douyin
+            updated = self.job_store.update(job_id, {"publish": publish})
+            self._send_json(HTTPStatus.OK, updated)
+            return
+
+        if action == "confirm":
+            st = str(douyin.get("state") or "")
+            if st != "upload_prepared":
+                self._send_json(
+                    HTTPStatus.CONFLICT,
+                    {"error": {"code": "PUBLISH_NOT_PREPARED", "message": "call prepare first"}},
+                )
+                return
+            douyin["state"] = "published"
+            douyin["published_at"] = now
+            douyin["published_via"] = "ui_stub"
+            publish["douyin"] = douyin
+            updated = self.job_store.update(job_id, {"publish": publish})
+            self._send_json(HTTPStatus.OK, updated)
+            return
+
+        self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "unknown publish action"}})
 
     def do_PATCH(self) -> None:  # noqa: N802
         matched = self._match_video_route(self._path_only())
