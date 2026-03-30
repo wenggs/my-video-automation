@@ -19,7 +19,7 @@ Local-first pipeline MVP: lyrics ingest and confirmation, forced alignment to wo
 
 **Browse:** `GET /api/v1/config`, `GET /api/v1/library/videos` (scan under `--input-root`), `GET /api/v1/jobs?limit=20`.
 
-`POST /api/v1/jobs` accepts optional **`video_relative_path`** (under `--input-root`). With **ffmpeg** available, the job adds **`douyin_vertical`** in `artifacts` (1080×1920 burn-in). **`words_relative_path`** is also resolved under `input_root` (path-safe).
+`POST /api/v1/jobs` returns **202** and runs the pipeline in a **background thread**; poll **`GET /api/v1/jobs/{id}`** for `queued` → `running` → `succeeded` or `failed`. Optional **`video_relative_path`** (under `--input-root`) triggers **ffmpeg** **`douyin_vertical`** in `artifacts`. **`words_relative_path`** is path-safe under `input_root`.
 
 ## Minimal vertical slice (one command)
 

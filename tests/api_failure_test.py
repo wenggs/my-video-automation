@@ -31,6 +31,22 @@ def http_json(method: str, path: str, payload: dict | None = None) -> tuple[int,
         return e.code, parsed
 
 
+def wait_job_failed(job_id: str, *, timeout_sec: float = 60.0, poll_sec: float = 0.15) -> dict:
+    deadline = time.time() + timeout_sec
+    last: dict = {}
+    while time.time() < deadline:
+        status, payload = http_json("GET", f"/api/v1/jobs/{job_id}")
+        assert status == 200, payload
+        last = payload
+        st = payload.get("status")
+        if st == "failed":
+            return payload
+        if st == "succeeded":
+            raise AssertionError(f"job {job_id} expected failed, got succeeded: {payload}")
+        time.sleep(poll_sec)
+    raise AssertionError(f"job {job_id} did not fail in {timeout_sec}s: {last}")
+
+
 def wait_health(max_wait_sec: float = 10.0) -> None:
     started = time.time()
     while time.time() - started < max_wait_sec:
@@ -102,18 +118,18 @@ def run() -> None:
             "/api/v1/jobs",
             {"video_asset_id": vid, "words_relative_path": "missing_words.json"},
         )
-        assert status == 422, payload
-        assert payload.get("status") == "failed"
-        assert payload.get("error", {}).get("code") == "WORDS_FILE_NOT_FOUND"
+        assert status == 202, payload
         job_id = payload.get("id")
         assert job_id
+        payload = wait_job_failed(job_id)
+        assert payload.get("error", {}).get("code") == "WORDS_FILE_NOT_FOUND"
 
         # GET failed job still retrievable
         status, payload = http_json("GET", f"/api/v1/jobs/{job_id}")
         assert status == 200
         assert payload.get("status") == "failed"
 
-        # POST job with missing video file -> 422 after lyrics step succeeds
+        # POST job with missing video file -> failed job (poll); HTTP POST is always 202
         status, payload = http_json(
             "POST",
             "/api/v1/jobs",
@@ -123,11 +139,12 @@ def run() -> None:
                 "video_relative_path": "this_video_does_not_exist.mp4",
             },
         )
-        assert status == 422, payload
-        assert payload.get("status") == "failed"
+        assert status == 202, payload
+        job_id2 = payload.get("id")
+        payload = wait_job_failed(job_id2)
         assert payload.get("error", {}).get("code") == "VIDEO_FILE_NOT_FOUND"
 
-        # Path escapes input_root -> 400, job failed
+        # Path escapes input_root -> failed job
         status, payload = http_json(
             "POST",
             "/api/v1/jobs",
@@ -137,11 +154,12 @@ def run() -> None:
                 "video_relative_path": "..\\official_lyrics.txt",
             },
         )
-        assert status == 400, payload
-        assert payload.get("status") == "failed"
+        assert status == 202, payload
+        job_id3 = payload.get("id")
+        payload = wait_job_failed(job_id3)
         assert payload.get("error", {}).get("code") == "RELATIVE_PATH_INVALID"
 
-        # words_relative_path escapes input_root -> 400
+        # words_relative_path escapes input_root
         status, payload = http_json(
             "POST",
             "/api/v1/jobs",
@@ -150,8 +168,9 @@ def run() -> None:
                 "words_relative_path": "..\\..\\README.md",
             },
         )
-        assert status == 400, payload
-        assert payload.get("status") == "failed"
+        assert status == 202, payload
+        job_id4 = payload.get("id")
+        payload = wait_job_failed(job_id4)
         assert payload.get("error", {}).get("code") == "RELATIVE_PATH_INVALID"
 
         print("API failure regression passed.")

@@ -66,6 +66,25 @@ def http_json(method: str, path: str, payload: dict | None = None) -> tuple[int,
         return e.code, parsed
 
 
+def wait_job(
+    job_id: str,
+    *,
+    timeout_sec: float = 120.0,
+    poll_sec: float = 0.15,
+) -> tuple[str, dict]:
+    deadline = time.time() + timeout_sec
+    last: dict = {}
+    while time.time() < deadline:
+        status, payload = http_json("GET", f"/api/v1/jobs/{job_id}")
+        assert status == 200, payload
+        last = payload
+        st = payload.get("status")
+        if st in ("succeeded", "failed"):
+            return str(st), payload
+        time.sleep(poll_sec)
+    raise AssertionError(f"job {job_id} did not finish in {timeout_sec}s: {last}")
+
+
 def wait_health(max_wait_sec: float = 10.0) -> None:
     started = time.time()
     while time.time() - started < max_wait_sec:
@@ -136,21 +155,23 @@ def run() -> None:
         if clip_rel:
             job_body["video_relative_path"] = clip_rel
 
-        # 3) POST job
+        # 3) POST job (202 Accepted, worker runs in background)
         status, payload = http_json(
             "POST",
             "/api/v1/jobs",
             job_body,
         )
-        assert status == 200, payload
-        assert payload.get("status") == "succeeded", payload
+        assert status == 202, payload
         job_id = payload.get("id")
         assert job_id
+        assert payload.get("status") in ("queued", "running", "succeeded"), payload
 
-        # 4) GET job by id
-        status, payload = http_json("GET", f"/api/v1/jobs/{job_id}")
-        assert status == 200, payload
-        assert payload.get("status") == "succeeded", payload
+        final_st, payload = (
+            (payload.get("status"), payload)
+            if payload.get("status") in ("succeeded", "failed")
+            else wait_job(job_id)
+        )
+        assert final_st == "succeeded", payload
         artifacts = payload.get("artifacts", {})
         for key in ("official_lyrics", "lyrics_confirmed", "aligned_subtitles", "job_log"):
             p = artifacts.get(key)
@@ -160,6 +181,11 @@ def run() -> None:
             dv = artifacts.get("douyin_vertical")
             assert dv, "expected douyin_vertical artifact when video_relative_path is set"
             assert Path(str(dv)).exists(), dv
+
+        # 4) GET job by id (same snapshot as terminal poll)
+        status, snapshot = http_json("GET", f"/api/v1/jobs/{job_id}")
+        assert status == 200, snapshot
+        assert snapshot.get("status") == "succeeded"
 
         status, job_list = http_json("GET", "/api/v1/jobs?limit=5")
         assert status == 200, job_list

@@ -17,6 +17,7 @@
 - Phase 7 Execute（最小竖切）：`video_pipeline vertical-slice` — 歌词对齐 + ffmpeg 1080×1920 字幕烧录；`services/video_export_service.py`；`tests/vertical_slice_test.py`（依赖本机 ffmpeg）
 - Phase 7b：`POST /api/v1/jobs` 支持可选 `video_relative_path`，成功后 `artifacts.douyin_vertical`；`common/paths.py` 防止路径穿越；冒烟/失败单测覆盖
 - Phase 8：`GET /api/v1/config`、`GET /api/v1/library/videos`（`library_scan`）、`GET /api/v1/jobs` 列表；`words_relative_path` 与视频一致做安全解析；`JobStore.list_recent`
+- Phase 9：**异步 Job** — `POST /api/v1/jobs` 返回 **202**，`services/job_execution.py` 后台线程执行对齐/导出；失败码写入 job 记录，`GET /jobs/{id}` **200** 读终端状态
 
 ## Todo
 - [x] Recreate required folders and files
@@ -33,4 +34,5 @@
 - [x] Phase 7 Execute：最小可演示竖切（本地视频 + 官方词 + 词级 JSON → 9:16 烧录成片）
 - [x] Phase 7b：`/jobs` 接入竖切导出与路径校验、回归测试
 - [x] Phase 8：工作区与素材发现 API（config / library scan / jobs 列表）+ `words` 路径安全
+- [x] Phase 9：`POST /jobs` 异步入队（202 + 轮询），流水线错误体现在 job JSON
 
