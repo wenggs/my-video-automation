@@ -9,6 +9,10 @@ from typing import Any, Dict
 from common.errors import AppError
 
 DOUYIN_UPLOAD_URL = "https://creator.douyin.com/creator-micro/content/upload"
+DOUYIN_FILE_INPUT_PROBES = (
+    "input[type='file']",
+    "input[type=file]",
+)
 
 
 @dataclass
@@ -39,14 +43,23 @@ def _prepare_with_playwright(video_path: Path, session_dir: Path) -> DouyinPrepa
         )
         try:
             page = context.new_page()
-            page.goto(DOUYIN_UPLOAD_URL, wait_until="domcontentloaded", timeout=60_000)
-            # Best-effort selector: common file input on upload pages.
-            # If this fails, user can still continue manually in opened browser.
-            try:
-                page.set_input_files("input[type='file']", str(video_path))
+            timeout_ms = int(os.getenv("DOUYIN_UPLOAD_TIMEOUT_MS", "60000"))
+            page.goto(DOUYIN_UPLOAD_URL, wait_until="domcontentloaded", timeout=timeout_ms)
+            page.wait_for_timeout(1500)
+
+            selected_probe = None
+            for probe in DOUYIN_FILE_INPUT_PROBES:
+                try:
+                    page.set_input_files(probe, str(video_path))
+                    selected_probe = probe
+                    break
+                except Exception:
+                    continue
+
+            if selected_probe:
                 state = "upload_prepared"
                 mode = "playwright_auto"
-            except Exception:
+            else:
                 state = "upload_prepared_manual"
                 mode = "playwright_opened_manual_next"
 
@@ -57,6 +70,8 @@ def _prepare_with_playwright(video_path: Path, session_dir: Path) -> DouyinPrepa
                     "upload_url": DOUYIN_UPLOAD_URL,
                     "session_dir": str(session_dir),
                     "video_path": str(video_path),
+                    "selected_probe": selected_probe,
+                    "probes": list(DOUYIN_FILE_INPUT_PROBES),
                     "manual_confirm_required": True,
                 },
             )
@@ -72,8 +87,8 @@ def prepare_douyin_upload(*, video_path: Path, data_root: Path) -> DouyinPrepare
     session_dir.mkdir(parents=True, exist_ok=True)
 
     mode = os.getenv("DOUYIN_UPLOAD_MODE", "").strip().lower()
-    # auto: try playwright first then fallback; manual(default): open browser and return instruction state.
-    auto_first = mode in ("auto", "playwright")
+    # default: try playwright first then fallback; set manual/browser to force manual mode.
+    auto_first = mode not in ("manual", "browser")
     if auto_first:
         try:
             return _prepare_with_playwright(video_path=video_path, session_dir=session_dir)

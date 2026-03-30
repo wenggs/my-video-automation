@@ -16,7 +16,7 @@ BASE = f"http://127.0.0.1:{PORT}"
 VIDEO_ID = "upload-stub-video-001"
 
 
-def http_json(method: str, path: str, payload: dict | None = None) -> tuple[int, dict]:
+def http_json(method: str, path: str, payload: dict | None = None, *, timeout_sec: float = 8.0) -> tuple[int, dict]:
     url = BASE + path
     data = None
     headers = {"Content-Type": "application/json; charset=utf-8"}
@@ -24,7 +24,7 @@ def http_json(method: str, path: str, payload: dict | None = None) -> tuple[int,
         data = json.dumps(payload, ensure_ascii=False).encode("utf-8")
     req = urllib.request.Request(url=url, data=data, method=method, headers=headers)
     try:
-        with urllib.request.urlopen(req, timeout=8) as resp:
+        with urllib.request.urlopen(req, timeout=timeout_sec) as resp:
             body = resp.read().decode("utf-8")
             return resp.status, json.loads(body) if body else {}
     except urllib.error.HTTPError as e:
@@ -156,6 +156,7 @@ def run() -> None:
             "POST",
             f"/api/v1/jobs/{job_id}/publish/douyin/prepare",
             {},
+            timeout_sec=90.0,
         )
         assert status == 200, payload
         publish = payload.get("publish", {}).get("douyin", {})
