@@ -5,6 +5,7 @@ import json
 import re
 import sys
 import uuid
+from urllib.parse import parse_qs
 from datetime import datetime, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -17,6 +18,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from common.errors import AppError, http_status_for_app_error
 from common.paths import resolve_safe_under_root
 from services.lyrics_service import run_lyrics_flow_service
+from services.library_scan import scan_video_files
 from services.video_export_service import export_douyin_vertical_burn_in
 from storage.job_store import JobStore
 from storage.lyrics_store import LyricsStore
@@ -27,6 +29,22 @@ class ApiHandler(BaseHTTPRequestHandler):
     job_store: JobStore
     input_root: Path
     data_root: Path
+
+    def _path_only(self) -> str:
+        return self.path.split("?", 1)[0]
+
+    def _query_limit(self, default: int = 100, *, cap: int = 500) -> int:
+        if "?" not in self.path:
+            return default
+        qs = parse_qs(self.path.split("?", 1)[1], keep_blank_values=False)
+        raw = (qs.get("limit") or [None])[0]
+        if raw is None:
+            return default
+        try:
+            n = int(raw)
+        except ValueError:
+            return default
+        return max(1, min(n, cap))
 
     def _send_json(self, status: int, payload: Dict[str, Any]) -> None:
         body = json.dumps(payload, ensure_ascii=False).encode("utf-8")
@@ -47,38 +65,57 @@ class ApiHandler(BaseHTTPRequestHandler):
             raise AppError("INVALID_JSON_TYPE", "request body must be a JSON object")
         return parsed
 
-    def _match_video_route(self) -> Tuple[str, str] | None:
+    def _match_video_route(self, path_only: str) -> Tuple[str, str] | None:
         # /api/v1/library/videos/{id}/lyrics
         # /api/v1/library/videos/{id}/lyrics/confirmed
-        m = re.match(r"^/api/v1/library/videos/([^/]+)/lyrics(?:/(confirmed))?$", self.path)
+        m = re.match(r"^/api/v1/library/videos/([^/]+)/lyrics(?:/(confirmed))?$", path_only)
         if not m:
             return None
         return m.group(1), (m.group(2) or "")
 
-    def _match_jobs_route(self) -> Tuple[str, str] | None:
-        if self.path == "/api/v1/jobs":
+    def _match_jobs_route(self, path_only: str) -> Tuple[str, str] | None:
+        if path_only == "/api/v1/jobs":
             return "", "collection"
-        m = re.match(r"^/api/v1/jobs/([^/]+)$", self.path)
+        m = re.match(r"^/api/v1/jobs/([^/]+)$", path_only)
         if not m:
             return None
         return m.group(1), "item"
 
     def do_GET(self) -> None:  # noqa: N802
-        if self.path == "/health":
+        if self._path_only() == "/health":
             self._send_json(HTTPStatus.OK, {"status": "ok"})
             return
-        jobs_match = self._match_jobs_route()
+        po = self._path_only()
+        if po == "/api/v1/config":
+            self._send_json(
+                HTTPStatus.OK,
+                {
+                    "input_root": str(self.input_root.resolve()),
+                    "data_root": str(self.data_root.resolve()),
+                },
+            )
+            return
+        if po == "/api/v1/library/videos":
+            try:
+                items = scan_video_files(self.input_root)
+                self._send_json(HTTPStatus.OK, {"items": items, "count": len(items)})
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+        jobs_match = self._match_jobs_route(po)
         if jobs_match:
             job_id, kind = jobs_match
             if kind == "collection":
-                self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "route not found"}})
+                limit = self._query_limit(default=100)
+                items = self.job_store.list_recent(limit=limit)
+                self._send_json(HTTPStatus.OK, {"items": items, "count": len(items)})
                 return
             try:
                 self._send_json(HTTPStatus.OK, self.job_store.get(job_id))
             except AppError as e:
                 self._send_json(http_status_for_app_error(e.code), e.to_dict())
             return
-        matched = self._match_video_route()
+        matched = self._match_video_route(po)
         if not matched:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "route not found"}})
             return
@@ -96,7 +133,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send_json(http_status_for_app_error(e.code), e.to_dict())
 
     def do_PUT(self) -> None:  # noqa: N802
-        matched = self._match_video_route()
+        matched = self._match_video_route(self._path_only())
         if not matched:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "route not found"}})
             return
@@ -115,7 +152,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send_json(http_status_for_app_error(e.code), e.to_dict())
 
     def do_POST(self) -> None:  # noqa: N802
-        jobs_match = self._match_jobs_route()
+        jobs_match = self._match_jobs_route(self._path_only())
         if not jobs_match:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "route not found"}})
             return
@@ -128,7 +165,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             video_id = str(payload.get("video_asset_id", "")).strip()
             if not video_id:
                 raise AppError("MISSING_VIDEO_ID", "video_asset_id is required")
-            words_relative_path = str(payload.get("words_relative_path", "transcript_words.json"))
+            words_relative_path = str(payload.get("words_relative_path", "transcript_words.json")).strip()
             video_rel_raw = payload.get("video_relative_path")
             video_rel = str(video_rel_raw).strip() if video_rel_raw is not None else ""
 
@@ -156,9 +193,9 @@ class ApiHandler(BaseHTTPRequestHandler):
             }
             self.job_store.create(job_record)
 
-            words_file = self.input_root / words_relative_path
             video_file: Path | None = None
             try:
+                words_file = resolve_safe_under_root(self.input_root, words_relative_path)
                 if video_rel:
                     video_file = resolve_safe_under_root(self.input_root, video_rel)
                     if not video_file.is_file():
@@ -214,7 +251,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send_json(http_status_for_app_error(e.code), e.to_dict())
 
     def do_PATCH(self) -> None:  # noqa: N802
-        matched = self._match_video_route()
+        matched = self._match_video_route(self._path_only())
         if not matched:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "route not found"}})
             return

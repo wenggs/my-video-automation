@@ -17,7 +17,9 @@ Local-first pipeline MVP: lyrics ingest and confirmation, forced alignment to wo
 
 2. Follow **[docs/DEMO.md](docs/DEMO.md)** for example `PUT` / `PATCH` / `POST` calls and expected artifacts.
 
-`POST /api/v1/jobs` accepts optional **`video_relative_path`** (under `--input-root`). With **ffmpeg** available, the job adds **`douyin_vertical`** in `artifacts` (1080×1920 burn-in).
+**Browse:** `GET /api/v1/config`, `GET /api/v1/library/videos` (scan under `--input-root`), `GET /api/v1/jobs?limit=20`.
+
+`POST /api/v1/jobs` accepts optional **`video_relative_path`** (under `--input-root`). With **ffmpeg** available, the job adds **`douyin_vertical`** in `artifacts` (1080×1920 burn-in). **`words_relative_path`** is also resolved under `input_root` (path-safe).
 
 ## Minimal vertical slice (one command)
 

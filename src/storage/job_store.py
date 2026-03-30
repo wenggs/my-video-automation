@@ -4,7 +4,7 @@ import json
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 from common.errors import AppError
 
@@ -41,3 +41,16 @@ class JobStore:
         if not jf.exists():
             raise AppError("JOB_NOT_FOUND", "job not found", {"job_id": job_id})
         return json.loads(jf.read_text(encoding="utf-8"))
+
+    def list_recent(self, *, limit: int = 100) -> List[Dict[str, Any]]:
+        d = self.data_root / "jobs"
+        if not d.is_dir():
+            return []
+        rows: List[Dict[str, Any]] = []
+        for jf in d.glob("*.json"):
+            try:
+                rows.append(json.loads(jf.read_text(encoding="utf-8")))
+            except json.JSONDecodeError:
+                continue
+        rows.sort(key=lambda x: str(x.get("updated_at") or x.get("created_at") or ""), reverse=True)
+        return rows[: max(1, min(limit, 500))]

@@ -15,6 +15,7 @@ _PIPELINE_FAILURE_CODES = frozenset(
         "SUBTITLES_FILE_NOT_FOUND",
         "FFMPEG_NOT_FOUND",
         "VIDEO_EXPORT_FAILED",
+        "INPUT_ROOT_INVALID",
     }
 )
 

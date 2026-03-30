@@ -141,6 +141,19 @@ def run() -> None:
         assert payload.get("status") == "failed"
         assert payload.get("error", {}).get("code") == "RELATIVE_PATH_INVALID"
 
+        # words_relative_path escapes input_root -> 400
+        status, payload = http_json(
+            "POST",
+            "/api/v1/jobs",
+            {
+                "video_asset_id": vid,
+                "words_relative_path": "..\\..\\README.md",
+            },
+        )
+        assert status == 400, payload
+        assert payload.get("status") == "failed"
+        assert payload.get("error", {}).get("code") == "RELATIVE_PATH_INVALID"
+
         print("API failure regression passed.")
     finally:
         server.terminate()

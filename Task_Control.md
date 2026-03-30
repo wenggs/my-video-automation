@@ -16,6 +16,7 @@
 - Phase 6 Execute：已补充 `tests/api_failure_test.py`（404/422 失败路径）、HTTP 状态映射说明见 `docs/DEMO.md` §5，仓库根 `README.md` 快速接入
 - Phase 7 Execute（最小竖切）：`video_pipeline vertical-slice` — 歌词对齐 + ffmpeg 1080×1920 字幕烧录；`services/video_export_service.py`；`tests/vertical_slice_test.py`（依赖本机 ffmpeg）
 - Phase 7b：`POST /api/v1/jobs` 支持可选 `video_relative_path`，成功后 `artifacts.douyin_vertical`；`common/paths.py` 防止路径穿越；冒烟/失败单测覆盖
+- Phase 8：`GET /api/v1/config`、`GET /api/v1/library/videos`（`library_scan`）、`GET /api/v1/jobs` 列表；`words_relative_path` 与视频一致做安全解析；`JobStore.list_recent`
 
 ## Todo
 - [x] Recreate required folders and files
@@ -31,4 +32,5 @@
 - [x] Phase 6 Execute：补充 /jobs 失败场景回归与返回码映射（400/404/422），并整理 README 接入指南
 - [x] Phase 7 Execute：最小可演示竖切（本地视频 + 官方词 + 词级 JSON → 9:16 烧录成片）
 - [x] Phase 7b：`/jobs` 接入竖切导出与路径校验、回归测试
+- [x] Phase 8：工作区与素材发现 API（config / library scan / jobs 列表）+ `words` 路径安全
 

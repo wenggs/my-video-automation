@@ -99,6 +99,16 @@ def run() -> None:
     try:
         wait_health()
 
+        status, payload = http_json("GET", "/api/v1/config")
+        assert status == 200, payload
+        assert Path(payload["input_root"]).exists()
+        assert "data_root" in payload
+
+        status, payload = http_json("GET", "/api/v1/library/videos")
+        assert status == 200, payload
+        assert isinstance(payload.get("items"), list)
+        assert "count" in payload
+
         # 1) PUT lyrics import
         status, payload = http_json(
             "PUT",
@@ -150,6 +160,10 @@ def run() -> None:
             dv = artifacts.get("douyin_vertical")
             assert dv, "expected douyin_vertical artifact when video_relative_path is set"
             assert Path(str(dv)).exists(), dv
+
+        status, job_list = http_json("GET", "/api/v1/jobs?limit=5")
+        assert status == 200, job_list
+        assert any(j.get("id") == job_id for j in job_list.get("items", [])), job_list
 
         print("API smoke test passed.")
     finally:
