@@ -6,6 +6,7 @@ from typing import Any, Dict, List
 from common.errors import AppError
 from common.paths import resolve_safe_under_root
 from services.lyrics_service import run_lyrics_flow_service
+from services.video_edit_service import run_trim_and_shift_for_burnin
 from services.video_export_service import export_douyin_vertical_burn_in
 from storage.job_store import JobStore
 
@@ -69,12 +70,20 @@ def run_lyrics_export_job(
             "job_log": str(result.log_path),
         }
         if video_file is not None:
+            trimmed_master, burnin_srt, _trim_start = run_trim_and_shift_for_burnin(
+                input_video=video_file,
+                words_file=words_file,
+                aligned_subtitles_srt=result.subtitles_path,
+                output_root=output_root,
+            )
             export_path = output_root / "export" / "douyin_vertical.mp4"
             export_douyin_vertical_burn_in(
-                input_video=video_file,
-                subtitles_srt=result.subtitles_path,
+                input_video=trimmed_master,
+                subtitles_srt=burnin_srt,
                 output_video=export_path,
             )
+            artifacts["edited_master"] = str(trimmed_master)
+            artifacts["subtitles_burnin"] = str(burnin_srt)
             artifacts["douyin_vertical"] = str(export_path)
 
         if is_cancelled():

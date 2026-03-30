@@ -47,6 +47,7 @@ def run() -> None:
     ffmpeg = _require_ffmpeg()
     sys.path.insert(0, str(SRC))
     from services.lyrics_service import run_lyrics_flow_service  # noqa: PLC0415
+    from services.video_edit_service import run_trim_and_shift_for_burnin  # noqa: PLC0415
     from services.video_export_service import export_douyin_vertical_burn_in  # noqa: PLC0415
 
     with tempfile.TemporaryDirectory() as td:
@@ -64,14 +65,22 @@ def run() -> None:
             words_file=words,
             output_root=out_root,
         )
-        export_douyin_vertical_burn_in(
+        trimmed_master, burnin_srt, _trim_start = run_trim_and_shift_for_burnin(
             input_video=video,
-            subtitles_srt=lyrics_result.subtitles_path,
+            words_file=words,
+            aligned_subtitles_srt=lyrics_result.subtitles_path,
+            output_root=out_root,
+        )
+        export_douyin_vertical_burn_in(
+            input_video=trimmed_master,
+            subtitles_srt=burnin_srt,
             output_video=export_path,
         )
 
         assert export_path.is_file(), export_path
         assert export_path.stat().st_size > 10_000, "export file unexpectedly small"
+        assert trimmed_master.is_file()
+        assert burnin_srt.is_file()
 
     print("Vertical slice test passed.")
 

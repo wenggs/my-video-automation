@@ -23,13 +23,13 @@ Local-first pipeline MVP: lyrics ingest and confirmation, forced alignment to wo
 
 ## Minimal vertical slice (one command)
 
-Given a local video, official lyrics, and word-level ASR JSON (see `tests/fixtures/spike/`), this runs **lyrics align → `subtitles.srt` → 1080×1920 burn-in** into `export/douyin_vertical.mp4`:
+Given a local video, official lyrics, and word-level ASR JSON (see `tests/fixtures/spike/`), this runs **lyrics align → trim master → shift SRT → 1080×1920 burn-in** into `export/douyin_vertical.mp4`:
 
 ```powershell
 python "src/video_pipeline.py" vertical-slice --video "D:\path\to\clip.mp4" --lyrics "tests/fixtures/spike/official_lyrics.txt" --words "tests/fixtures/spike/transcript_words.json" --output ".local-data\jobs-run\demo-vs-001"
 ```
 
-Artifacts land under `--output`: `artifacts/`, `export/`, `logs/`.
+Artifacts land under `--output`: `artifacts/` (`subtitles.srt`, `subtitles_burnin.srt`), `edited/` (`edited_master.mp4`), `export/`, `logs/`.
 
 ## Tests
 

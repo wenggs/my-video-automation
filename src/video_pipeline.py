@@ -5,6 +5,7 @@ from pathlib import Path
 
 from common.errors import AppError
 from services.lyrics_service import run_lyrics_flow_service
+from services.video_edit_service import run_trim_and_shift_for_burnin
 from services.video_export_service import export_douyin_vertical_burn_in
 
 
@@ -68,15 +69,22 @@ if __name__ == "__main__":
                 output_root=args.output,
                 preserve_confirmed=args.preserve_confirmed,
             )
+            trimmed_master, burnin_srt, _trim_start = run_trim_and_shift_for_burnin(
+                input_video=args.video,
+                words_file=args.words,
+                aligned_subtitles_srt=lyrics_result.subtitles_path,
+                output_root=args.output,
+            )
             export_path = args.output / "export" / args.export_name
             export_douyin_vertical_burn_in(
-                input_video=args.video,
-                subtitles_srt=lyrics_result.subtitles_path,
+                input_video=trimmed_master,
+                subtitles_srt=burnin_srt,
                 output_video=export_path,
             )
             print(f"official lyrics artifact: {lyrics_result.official_lyrics_path}")
             print(f"confirmed lyrics artifact: {lyrics_result.confirmed_lyrics_path}")
             print(f"aligned subtitles: {lyrics_result.subtitles_path}")
+            print(f"trimmed master: {trimmed_master}")
             print(f"vertical export (9:16 burn-in): {export_path}")
             print(f"job log: {lyrics_result.log_path}")
         except AppError as e:

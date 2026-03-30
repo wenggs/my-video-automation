@@ -101,7 +101,13 @@ From repo root, with a real `--video` path and the same fixture lyrics/words as 
 python "src/video_pipeline.py" vertical-slice --video "D:\path\to\your.mp4" --lyrics "tests/fixtures/spike/official_lyrics.txt" --words "tests/fixtures/spike/transcript_words.json" --output ".local-data\jobs-run\demo-vertical"
 ```
 
-Expect `artifacts/subtitles.srt` and `export/douyin_vertical.mp4` under `--output`. Regression: `python "tests/vertical_slice_test.py"`.
+Expect:
+- `artifacts/subtitles.srt` (original aligned subtitles, audit)
+- `edited/edited_master.mp4` (trimmed master used for burn-in)
+- `artifacts/subtitles_burnin.srt` (shifted subtitles for trimmed timeline)
+- `export/douyin_vertical.mp4` under `--output`.
+
+Regression: `python "tests/vertical_slice_test.py"`.
 
 ## 4. One-command smoke test
 
@@ -123,6 +129,8 @@ After a succeeded job:
 - `official_lyrics.json`
 - `lyrics_confirmed.json`
 - `subtitles.srt`
+- `edited_master.mp4` (trimmed master for the burn-in timeline; only when `video_relative_path` was provided)
+- `subtitles_burnin.srt` (shifted subtitles for the trimmed timeline)
 - `logs/job.log`
 - `export/douyin_vertical.mp4` (when `video_relative_path` was sent and export succeeded)
 
