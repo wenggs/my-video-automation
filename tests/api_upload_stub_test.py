@@ -159,7 +159,7 @@ def run() -> None:
         )
         assert status == 200, payload
         publish = payload.get("publish", {}).get("douyin", {})
-        assert publish.get("state") == "upload_prepared", payload
+        assert publish.get("state") in ("upload_prepared", "upload_prepared_manual"), payload
         assert publish.get("draft_url"), payload
 
         # 5) Confirm publish (stub)

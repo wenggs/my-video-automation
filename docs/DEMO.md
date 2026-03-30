@@ -95,7 +95,7 @@ If the job is still `queued` / `running`, it becomes `cancelled`. If it is alrea
 
 ### 2.7 Douyin upload prepare/confirm (UI stub)
 
-For MVP, the HTTP API supports a **manual publish confirmation flow**.
+For MVP, the HTTP API supports a **manual publish confirmation flow** with an upload service adapter.
 
 1. Prepare upload draft (sets `publish.douyin.state = upload_prepared`)
 
@@ -110,6 +110,10 @@ Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8011/api/v1/jobs/<job-id>/
 ```
 
 If `artifacts.douyin_vertical` is missing, the server returns **422** (`ARTIFACT_MISSING`).
+
+Notes:
+- Default mode opens Douyin upload page in the local browser and returns `upload_prepared_manual` with instructions under `publish.douyin.prepare_details`.
+- Set env `DOUYIN_UPLOAD_MODE=auto` to try Playwright persistent-session upload first (best effort). If Playwright is unavailable, it falls back to manual mode.
 
 ## 3. Minimal vertical slice (CLI, requires ffmpeg)
 

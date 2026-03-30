@@ -20,6 +20,7 @@ sys.path.append(str(Path(__file__).resolve().parents[1]))
 from common.errors import AppError, http_status_for_app_error
 from services.job_execution import run_lyrics_export_job
 from services.library_scan import scan_video_files
+from services.upload_douyin_service import prepare_douyin_upload
 from storage.job_store import JobStore
 from storage.lyrics_store import LyricsStore
 
@@ -384,15 +385,16 @@ class ApiHandler(BaseHTTPRequestHandler):
         now = datetime.now(timezone.utc).isoformat()
         publish = job.get("publish") or {}
         douyin = publish.get("douyin") or {}
-        draft_url = Path(video_path).resolve().as_uri()
 
         if action == "prepare":
+            prep = prepare_douyin_upload(video_path=Path(str(video_path)), data_root=self.data_root)
             douyin = {
-                "state": "upload_prepared",
+                "state": prep.state,
                 "prepared_at": now,
-                "draft_url": draft_url,
+                "draft_url": prep.details.get("upload_url"),
                 "video_path": video_path,
                 "manual_confirm_required": True,
+                "prepare_details": prep.details,
             }
             publish["douyin"] = douyin
             updated = self.job_store.update(job_id, {"publish": publish})
@@ -401,7 +403,7 @@ class ApiHandler(BaseHTTPRequestHandler):
 
         if action == "confirm":
             st = str(douyin.get("state") or "")
-            if st != "upload_prepared":
+            if st not in ("upload_prepared", "upload_prepared_manual"):
                 self._send_json(
                     HTTPStatus.CONFLICT,
                     {"error": {"code": "PUBLISH_NOT_PREPARED", "message": "call prepare first"}},
