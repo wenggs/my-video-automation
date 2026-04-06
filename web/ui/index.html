@@ -79,6 +79,7 @@
         const canConfirm = douyinState === 'upload_prepared';
 
         const preparedUrl = douyin.draft_url ? String(douyin.draft_url) : '';
+        const videoUrl = `${API_BASE}/jobs/${job.id}/artifacts/douyin_vertical`;
 
         return `
           <tr>
@@ -89,6 +90,7 @@
             <td><span class="status">${job.status || ''}</span></td>
             <td>
               <div><b>douyin_vertical:</b> ${hasVideo ? '<code>yes</code>' : '<code>missing</code>'}</div>
+              ${hasVideo ? `<div style="margin-top:6px;"><a href="${videoUrl}" target="_blank">Open video</a> · <a href="${videoUrl}" download>Download</a></div>` : ''}
               <div><b>publish.douyin:</b> <code>${douyinState || '-'}</code></div>
               ${preparedUrl ? `<div style="margin-top:6px;"><a href="${preparedUrl}" target="_blank">Open prepared draft</a></div>` : ''}
             </td>

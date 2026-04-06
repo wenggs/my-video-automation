@@ -66,6 +66,17 @@ def http_json(method: str, path: str, payload: dict | None = None) -> tuple[int,
         return e.code, parsed
 
 
+def http_status(method: str, path: str) -> int:
+    url = BASE + path
+    req = urllib.request.Request(url=url, method=method)
+    try:
+        with urllib.request.urlopen(req, timeout=8) as resp:
+            _ = resp.read()  # binary-safe endpoint support
+            return resp.status
+    except urllib.error.HTTPError as e:
+        return e.code
+
+
 def wait_job(
     job_id: str,
     *,
@@ -183,6 +194,8 @@ def run() -> None:
             dv = artifacts.get("douyin_vertical")
             assert dv, "expected douyin_vertical artifact when video_relative_path is set"
             assert Path(str(dv)).exists(), dv
+            status = http_status("GET", f"/api/v1/jobs/{job_id}/artifacts/douyin_vertical")
+            assert status == 200
 
         # 4) GET job by id (same snapshot as terminal poll)
         status, snapshot = http_json("GET", f"/api/v1/jobs/{job_id}")

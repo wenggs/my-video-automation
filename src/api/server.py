@@ -159,6 +159,39 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._send_json(http_status_for_app_error(e.code), e.to_dict())
             return
 
+        # GET /api/v1/jobs/{id}/artifacts/{name}
+        m_artifact = re.match(r"^/api/v1/jobs/([^/]+)/artifacts/([^/]+)$", po)
+        if m_artifact:
+            job_id, artifact_name = m_artifact.group(1), m_artifact.group(2)
+            try:
+                job = self.job_store.get(job_id)
+                artifacts = job.get("artifacts") or {}
+                ap = artifacts.get(artifact_name)
+                if not ap:
+                    raise AppError(
+                        "JOB_ARTIFACT_NOT_FOUND",
+                        "job artifact not found",
+                        {"job_id": job_id, "artifact": artifact_name},
+                    )
+                fp = Path(str(ap))
+                if not fp.exists() or not fp.is_file():
+                    raise AppError(
+                        "JOB_ARTIFACT_NOT_FOUND",
+                        "artifact file not found on disk",
+                        {"job_id": job_id, "artifact": artifact_name, "path": str(fp)},
+                    )
+                content = fp.read_bytes()
+                ctype = mimetypes.guess_type(str(fp))[0] or "application/octet-stream"
+                self.send_response(HTTPStatus.OK)
+                self.send_header("Content-Type", ctype)
+                self.send_header("Content-Length", str(len(content)))
+                self.send_header("Content-Disposition", f"inline; filename=\"{fp.name}\"")
+                self.end_headers()
+                self.wfile.write(content)
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+
         # GET /api/v1/jobs/{id}/logs?tail=200
         m_logs = re.match(r"^/api/v1/jobs/([^/]+)/logs$", po)
         if m_logs:
