@@ -178,6 +178,34 @@ def run() -> None:
         t.join(timeout=6.0)
         assert holder.get("status") == 200, holder.get("payload")
 
+        # cancellation: running request can be cancelled by request_id
+        cancel_id = "auto-cancel-001"
+        holder2: dict = {}
+
+        def long_req_cancel() -> None:
+            st, pl = http_json(
+                "POST",
+                f"/api/v1/library/videos/{VIDEO_ID}/lyrics/auto-generate",
+                {"request_id": cancel_id, "video_relative_path": clip_rel, "model": "small", "language": "zh"},
+                timeout_sec=10.0,
+            )
+            holder2["status"] = st
+            holder2["payload"] = pl
+
+        t2 = threading.Thread(target=long_req_cancel, daemon=True)
+        t2.start()
+        time.sleep(0.2)
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/lyrics/auto-generate/cancel",
+            {"request_id": cancel_id},
+        )
+        assert status == 200, payload
+        assert payload.get("state") == "cancelling", payload
+        t2.join(timeout=6.0)
+        assert holder2.get("status") == 409, holder2.get("payload")
+        assert holder2.get("payload", {}).get("error", {}).get("code") == "AUTO_SUBTITLES_CANCELLED", holder2.get("payload")
+
         print("API auto subtitles test passed.")
     finally:
         server.terminate()

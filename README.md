@@ -51,6 +51,7 @@ playwright install chromium
 - Lyrics ingest + confirmed-lyrics update (`PUT/PATCH /api/v1/library/videos/{id}/lyrics*`)
 - Auto lyrics bootstrap from video (`POST /api/v1/library/videos/{id}/lyrics/auto-generate`)
 - Auto subtitles concurrency guard (`429 AUTO_SUBTITLES_BUSY` when in-flight ASR limit reached)
+- Auto subtitles best-effort cancellation by `request_id` (`/lyrics/auto-generate/cancel`)
 - Async jobs (`POST /api/v1/jobs` returns `202`, then poll `GET /api/v1/jobs/{id}`)
 - Vertical export path (`video_relative_path`) with 9:16 burn-in artifact (`douyin_vertical`)
 - Job logs and cancel (`GET /api/v1/jobs/{id}/logs`, `POST /api/v1/jobs/{id}/cancel`)

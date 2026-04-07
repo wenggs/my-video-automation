@@ -5,7 +5,7 @@ import os
 import time
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Any, Dict, List
+from typing import Any, Callable, Dict, List
 
 from common.errors import AppError
 
@@ -60,16 +60,25 @@ def auto_generate_subtitles_from_video(
     language: str = "zh",
     beam_size: int = 5,
     vad_filter: bool = True,
+    should_cancel: Callable[[], bool] | None = None,
 ) -> AutoSubtitlesResult:
     if not video_path.exists() or not video_path.is_file():
         raise AppError("VIDEO_FILE_NOT_FOUND", "video file not found", {"path": str(video_path)})
     output_dir.mkdir(parents=True, exist_ok=True)
+    if should_cancel and should_cancel():
+        raise AppError("AUTO_SUBTITLES_CANCELLED", "auto subtitles request was cancelled")
 
     started = time.perf_counter()
     if os.getenv("AUTO_SUBTITLES_FAKE", "").strip().lower() in ("1", "true", "yes"):
         fake_sleep_ms = int(os.getenv("AUTO_SUBTITLES_FAKE_SLEEP_MS", "0"))
         if fake_sleep_ms > 0:
-            time.sleep(fake_sleep_ms / 1000.0)
+            waited = 0
+            step = 100
+            while waited < fake_sleep_ms:
+                if should_cancel and should_cancel():
+                    raise AppError("AUTO_SUBTITLES_CANCELLED", "auto subtitles request was cancelled")
+                time.sleep(step / 1000.0)
+                waited += step
         fake = _fake_result(video_path, output_dir)
         fake.details["elapsed_sec"] = round(time.perf_counter() - started, 3)
         fake.details["beam_size"] = beam_size
@@ -101,6 +110,8 @@ def auto_generate_subtitles_from_video(
     srt_blocks: List[str] = []
     raw_segments: List[Dict[str, Any]] = []
     for idx, seg in enumerate(segs, start=1):
+        if should_cancel and should_cancel():
+            raise AppError("AUTO_SUBTITLES_CANCELLED", "auto subtitles request was cancelled")
         text = str(getattr(seg, "text", "")).strip()
         if not text:
             continue

@@ -38,6 +38,8 @@ class ApiHandler(BaseHTTPRequestHandler):
     MAX_ASR_INFLIGHT = 1
     _ASR_LOCK = threading.Lock()
     _ASR_INFLIGHT = 0
+    _ASR_CANCEL_LOCK = threading.Lock()
+    _ASR_CANCEL_FLAGS: Dict[str, bool] = {}
     _PROJECT_ROOT = Path(__file__).resolve().parents[2]
     _UI_DIR = _PROJECT_ROOT / "web" / "ui"
 
@@ -284,6 +286,28 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         po = self._path_only()
 
+        # POST /api/v1/library/videos/{id}/lyrics/auto-generate/cancel
+        m_auto_cancel = re.match(r"^/api/v1/library/videos/([^/]+)/lyrics/auto-generate/cancel$", po)
+        if m_auto_cancel:
+            try:
+                payload = self._read_json()
+                req_id = str(payload.get("request_id", "")).strip()
+                if not req_id:
+                    raise AppError("MISSING_REQUEST_ID", "request_id is required")
+                cls = type(self)
+                with cls._ASR_CANCEL_LOCK:
+                    if req_id not in cls._ASR_CANCEL_FLAGS:
+                        raise AppError(
+                            "AUTO_SUBTITLES_REQUEST_NOT_FOUND",
+                            "auto subtitles request_id not found",
+                            {"request_id": req_id},
+                        )
+                    cls._ASR_CANCEL_FLAGS[req_id] = True
+                self._send_json(HTTPStatus.OK, {"request_id": req_id, "state": "cancelling"})
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+
         # POST /api/v1/library/videos/{id}/lyrics/auto-generate
         m_auto = re.match(r"^/api/v1/library/videos/([^/]+)/lyrics/auto-generate$", po)
         if m_auto:
@@ -302,12 +326,15 @@ class ApiHandler(BaseHTTPRequestHandler):
                 video_rel = str(payload.get("video_relative_path", "")).strip()
                 if not video_rel:
                     raise AppError("VIDEO_RELATIVE_PATH_REQUIRED", "video_relative_path is required")
+                request_id = str(payload.get("request_id", "")).strip() or str(uuid.uuid4())
                 model_name = str(payload.get("model", "small")).strip() or "small"
                 language = str(payload.get("language", "zh")).strip() or "zh"
                 beam_size = int(payload.get("beam_size", 5))
                 vad_filter = bool(payload.get("vad_filter", True))
                 video_path = resolve_safe_under_root(self.input_root, video_rel)
                 output_dir = self.data_root / "library" / "videos" / video_id / "auto_subtitles"
+                with cls._ASR_CANCEL_LOCK:
+                    cls._ASR_CANCEL_FLAGS[request_id] = False
                 result = auto_generate_subtitles_from_video(
                     video_path=video_path,
                     output_dir=output_dir,
@@ -315,6 +342,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                     language=language,
                     beam_size=beam_size,
                     vad_filter=vad_filter,
+                    should_cancel=lambda: bool(cls._ASR_CANCEL_FLAGS.get(request_id, False)),
                 )
                 state = self.store.put_lyrics(
                     video_id,
@@ -325,14 +353,22 @@ class ApiHandler(BaseHTTPRequestHandler):
                     },
                 )
                 state["auto_generate"] = {
+                    "request_id": request_id,
                     "video_relative_path": video_rel,
                     "srt_path": str(result.srt_path),
                     "details": result.details,
                 }
                 self._send_json(HTTPStatus.OK, state)
             except AppError as e:
-                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+                if e.code == "AUTO_SUBTITLES_CANCELLED":
+                    self._send_json(HTTPStatus.CONFLICT, e.to_dict())
+                else:
+                    self._send_json(http_status_for_app_error(e.code), e.to_dict())
             finally:
+                with cls._ASR_CANCEL_LOCK:
+                    req_id = locals().get("request_id")
+                    if isinstance(req_id, str) and req_id:
+                        cls._ASR_CANCEL_FLAGS.pop(req_id, None)
                 with cls._ASR_LOCK:
                     cls._ASR_INFLIGHT = max(0, cls._ASR_INFLIGHT - 1)
             return

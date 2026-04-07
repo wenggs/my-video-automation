@@ -66,4 +66,5 @@
 - [x] Phase 16.7：auto-generate 回传与展示关键指标（elapsed/segments/model/beam）
 - [x] Phase 16.8：补自动字幕失败回归（缺参/越界/文件不存在）并完善 DEMO/README 说明
 - [x] Phase 17.1：ASR 自动字幕并发治理（in-flight 限流 + `429 AUTO_SUBTITLES_BUSY`）与并发回归
+- [x] Phase 17.2：ASR 自动字幕取消能力（`request_id` + cancel API）与回归测试
 

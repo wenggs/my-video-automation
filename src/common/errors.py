@@ -3,7 +3,15 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any, Dict
 
-_NOT_FOUND_CODES = frozenset({"JOB_NOT_FOUND", "LYRICS_STATE_NOT_FOUND", "JOB_LOG_NOT_FOUND", "JOB_ARTIFACT_NOT_FOUND"})
+_NOT_FOUND_CODES = frozenset(
+    {
+        "JOB_NOT_FOUND",
+        "LYRICS_STATE_NOT_FOUND",
+        "JOB_LOG_NOT_FOUND",
+        "JOB_ARTIFACT_NOT_FOUND",
+        "AUTO_SUBTITLES_REQUEST_NOT_FOUND",
+    }
+)
 
 _PIPELINE_FAILURE_CODES = frozenset(
     {
@@ -24,6 +32,7 @@ _PIPELINE_FAILURE_CODES = frozenset(
         "AUTO_SUBTITLES_ENGINE_NOT_AVAILABLE",
         "AUTO_SUBTITLES_FAILED",
         "AUTO_SUBTITLES_EMPTY",
+        "AUTO_SUBTITLES_CANCELLED",
     }
 )
 

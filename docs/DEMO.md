@@ -157,6 +157,7 @@ Notes:
 - For deterministic local regression tests, `AUTO_SUBTITLES_FAKE=1` can be used.
 - Missing `video_relative_path` returns `VIDEO_RELATIVE_PATH_REQUIRED`; path traversal returns `RELATIVE_PATH_INVALID`.
 - Auto subtitles requests are concurrency-limited; when busy, API returns `429 AUTO_SUBTITLES_BUSY`.
+- `request_id` can be provided for cancellation; call `POST /api/v1/library/videos/{id}/lyrics/auto-generate/cancel` with `{ "request_id": "..." }`.
 
 ## 3. Minimal vertical slice (CLI, requires ffmpeg)
 
