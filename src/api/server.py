@@ -292,6 +292,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                     raise AppError("VIDEO_RELATIVE_PATH_REQUIRED", "video_relative_path is required")
                 model_name = str(payload.get("model", "small")).strip() or "small"
                 language = str(payload.get("language", "zh")).strip() or "zh"
+                beam_size = int(payload.get("beam_size", 5))
+                vad_filter = bool(payload.get("vad_filter", True))
                 video_path = resolve_safe_under_root(self.input_root, video_rel)
                 output_dir = self.data_root / "library" / "videos" / video_id / "auto_subtitles"
                 result = auto_generate_subtitles_from_video(
@@ -299,6 +301,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                     output_dir=output_dir,
                     model_name=model_name,
                     language=language,
+                    beam_size=beam_size,
+                    vad_filter=vad_filter,
                 )
                 state = self.store.put_lyrics(
                     video_id,

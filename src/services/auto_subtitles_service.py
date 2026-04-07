@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Dict, List
@@ -57,13 +58,20 @@ def auto_generate_subtitles_from_video(
     output_dir: Path,
     model_name: str = "small",
     language: str = "zh",
+    beam_size: int = 5,
+    vad_filter: bool = True,
 ) -> AutoSubtitlesResult:
     if not video_path.exists() or not video_path.is_file():
         raise AppError("VIDEO_FILE_NOT_FOUND", "video file not found", {"path": str(video_path)})
     output_dir.mkdir(parents=True, exist_ok=True)
 
+    started = time.perf_counter()
     if os.getenv("AUTO_SUBTITLES_FAKE", "").strip().lower() in ("1", "true", "yes"):
-        return _fake_result(video_path, output_dir)
+        fake = _fake_result(video_path, output_dir)
+        fake.details["elapsed_sec"] = round(time.perf_counter() - started, 3)
+        fake.details["beam_size"] = beam_size
+        fake.details["vad_filter"] = vad_filter
+        return fake
 
     try:
         from faster_whisper import WhisperModel  # type: ignore
@@ -76,7 +84,12 @@ def auto_generate_subtitles_from_video(
 
     try:
         model = WhisperModel(model_name, device="cpu", compute_type="int8")
-        segments, info = model.transcribe(str(video_path), language=language, vad_filter=True)
+        segments, info = model.transcribe(
+            str(video_path),
+            language=language,
+            vad_filter=vad_filter,
+            beam_size=beam_size,
+        )
         segs = list(segments)
     except Exception as e:
         raise AppError("AUTO_SUBTITLES_FAILED", "automatic subtitles generation failed", {"exception": str(e)}) from e
@@ -109,8 +122,11 @@ def auto_generate_subtitles_from_video(
             "engine": "faster_whisper",
             "model": model_name,
             "language": language,
+            "beam_size": beam_size,
+            "vad_filter": vad_filter,
             "segments": len(raw_segments),
             "duration_sec": float(getattr(info, "duration", 0.0)),
+            "elapsed_sec": round(time.perf_counter() - started, 3),
         },
     )
 
