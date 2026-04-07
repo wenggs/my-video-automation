@@ -68,4 +68,5 @@
 - [x] Phase 17.1：ASR 自动字幕并发治理（in-flight 限流 + `429 AUTO_SUBTITLES_BUSY`）与并发回归
 - [x] Phase 17.2：ASR 自动字幕取消能力（`request_id` + cancel API）与回归测试
 - [x] Phase 17.3：UI 接入自动字幕取消（显示 request_id + 一键 cancel）
+- [x] Phase 18.1：产出 `v0.6.0` 发布说明草稿（功能/兼容性/测试/运维观察项）
 
