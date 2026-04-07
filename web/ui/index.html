@@ -81,6 +81,18 @@
       <textarea id="reviewLines" style="width:100%; min-height:140px; margin-top:8px;" placeholder="one subtitle line per row"></textarea>
     </div>
 
+    <div class="card" style="margin-top: 12px;">
+      <div style="font-weight:bold; margin-bottom:8px;">Subtitle review rules</div>
+      <div class="row">
+        <label class="muted">min_lines <input id="rMinLines" style="width:70px;" value="3" /></label>
+        <label class="muted">max_line_chars <input id="rMaxLineChars" style="width:70px;" value="28" /></label>
+        <label class="muted">min_line_chars <input id="rMinLineChars" style="width:70px;" value="2" /></label>
+        <label class="muted"><input type="checkbox" id="rFlagQuestion" checked /> flag question mark</label>
+        <button id="btnLoadRules">Reload rules</button>
+        <button id="btnSaveRules">Save rules</button>
+      </div>
+    </div>
+
     <div id="msg" class="muted"></div>
 
     <div class="card" style="margin-top: 12px;">
@@ -215,6 +227,10 @@
         return fetchJson(API_BASE + '/config');
       }
 
+      async function loadReviewRules() {
+        return fetchJson(API_BASE + '/config/subtitles-review');
+      }
+
       function renderJob(job) {
         const artifacts = job.artifacts || {};
         const publish = job.publish || {};
@@ -269,9 +285,13 @@
         const msg = document.getElementById('msg');
         msg.textContent = 'Loading...';
         try {
-          const [cfg, jobs] = await Promise.all([loadConfig(), loadJobs()]);
+          const [cfg, jobs, rules] = await Promise.all([loadConfig(), loadJobs(), loadReviewRules()]);
           document.getElementById('cfgInputRoot').textContent = String(cfg.input_root || '-');
           document.getElementById('cfgDataRoot').textContent = String(cfg.data_root || '-');
+          document.getElementById('rMinLines').value = String(rules.min_lines || 3);
+          document.getElementById('rMaxLineChars').value = String(rules.max_line_chars || 28);
+          document.getElementById('rMinLineChars').value = String(rules.min_line_chars || 2);
+          document.getElementById('rFlagQuestion').checked = !!rules.flag_question_mark;
           const statusFilter = String(document.getElementById('fStatus').value || 'all');
           const filtered = statusFilter === 'all' ? jobs : jobs.filter((j) => String(j.status || '') === statusFilter);
           const body = document.getElementById('jobsBody');
@@ -535,6 +555,29 @@
         }
       }
 
+      async function saveReviewRules() {
+        const msg = document.getElementById('msg');
+        const body = {
+          min_lines: Number(document.getElementById('rMinLines').value || 3),
+          max_line_chars: Number(document.getElementById('rMaxLineChars').value || 28),
+          min_line_chars: Number(document.getElementById('rMinLineChars').value || 2),
+          flag_question_mark: !!document.getElementById('rFlagQuestion').checked,
+        };
+        try {
+          await fetchJson(API_BASE + '/config/subtitles-review', {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify(body),
+          });
+          msg.textContent = 'Subtitle review rules saved.';
+          msg.className = 'ok';
+          await refresh();
+        } catch (e) {
+          msg.textContent = 'Save rules failed: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
       window.__copyJson = async function(jobId, kind, encoded) {
         const msg = document.getElementById('msg');
         try {
@@ -573,6 +616,8 @@
       document.getElementById('btnLoadAutoSegments').addEventListener('click', loadAutoSegments);
       document.getElementById('fOnlyNeedsReview').addEventListener('change', loadAutoSegments);
       document.getElementById('btnSaveReviewedLines').addEventListener('click', saveReviewedLines);
+      document.getElementById('btnLoadRules').addEventListener('click', refresh);
+      document.getElementById('btnSaveRules').addEventListener('click', saveReviewRules);
       document.getElementById('btnCreateJob').addEventListener('click', createJob);
       applyPrefs();
       setAutoUiState();

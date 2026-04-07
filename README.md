@@ -53,6 +53,7 @@ playwright install chromium
 - Auto subtitles concurrency guard (`429 AUTO_SUBTITLES_BUSY` when in-flight ASR limit reached)
 - Auto subtitles best-effort cancellation by `request_id` (`/lyrics/auto-generate/cancel`)
 - Auto-segments review helper (`GET /api/v1/library/videos/{id}/lyrics/auto-segments`) with `needs_review` hints
+- Subtitle review rules config (`GET/PUT /api/v1/config/subtitles-review`)
 - Async jobs (`POST /api/v1/jobs` returns `202`, then poll `GET /api/v1/jobs/{id}`)
 - Vertical export path (`video_relative_path`) with 9:16 burn-in artifact (`douyin_vertical`)
 - Job logs and cancel (`GET /api/v1/jobs/{id}/logs`, `POST /api/v1/jobs/{id}/cancel`)

@@ -159,6 +159,7 @@ Notes:
 - Auto subtitles requests are concurrency-limited; when busy, API returns `429 AUTO_SUBTITLES_BUSY`.
 - `request_id` can be provided for cancellation; call `POST /api/v1/library/videos/{id}/lyrics/auto-generate/cancel` with `{ "request_id": "..." }`.
 - Review helper endpoint: `GET /api/v1/library/videos/{id}/lyrics/auto-segments` (includes `needs_review` and `review_reasons`).
+- Review rules endpoint: `GET/PUT /api/v1/config/subtitles-review` (configure min/max thresholds and review flag behavior).
 
 ## 3. Minimal vertical slice (CLI, requires ffmpeg)
 

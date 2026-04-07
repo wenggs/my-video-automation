@@ -42,25 +42,69 @@ class ApiHandler(BaseHTTPRequestHandler):
     _ASR_CANCEL_FLAGS: Dict[str, bool] = {}
     _PROJECT_ROOT = Path(__file__).resolve().parents[2]
     _UI_DIR = _PROJECT_ROOT / "web" / "ui"
+    DEFAULT_SUBTITLE_REVIEW_RULES: Dict[str, Any] = {
+        "min_lines": 3,
+        "max_line_chars": 28,
+        "min_line_chars": 2,
+        "flag_question_mark": True,
+    }
 
-    def _subtitle_preflight_warnings(self, lines: list[str]) -> list[str]:
+    def _subtitle_rules_path(self) -> Path:
+        p = self.data_root / "config" / "subtitles_review.json"
+        p.parent.mkdir(parents=True, exist_ok=True)
+        return p
+
+    def _load_subtitle_review_rules(self) -> Dict[str, Any]:
+        fp = self._subtitle_rules_path()
+        if not fp.exists():
+            return dict(self.DEFAULT_SUBTITLE_REVIEW_RULES)
+        try:
+            raw = json.loads(fp.read_text(encoding="utf-8"))
+            if not isinstance(raw, dict):
+                return dict(self.DEFAULT_SUBTITLE_REVIEW_RULES)
+        except Exception:
+            return dict(self.DEFAULT_SUBTITLE_REVIEW_RULES)
+        out = dict(self.DEFAULT_SUBTITLE_REVIEW_RULES)
+        out.update(raw)
+        return out
+
+    def _save_subtitle_review_rules(self, payload: Dict[str, Any]) -> Dict[str, Any]:
+        rules = dict(self.DEFAULT_SUBTITLE_REVIEW_RULES)
+        rules["min_lines"] = max(1, int(payload.get("min_lines", rules["min_lines"])))
+        rules["max_line_chars"] = max(8, int(payload.get("max_line_chars", rules["max_line_chars"])))
+        rules["min_line_chars"] = max(1, int(payload.get("min_line_chars", rules["min_line_chars"])))
+        rules["flag_question_mark"] = bool(payload.get("flag_question_mark", rules["flag_question_mark"]))
+        self._subtitle_rules_path().write_text(json.dumps(rules, ensure_ascii=False, indent=2), encoding="utf-8")
+        return rules
+
+    def _subtitle_preflight_warnings(self, lines: list[str], rules: Dict[str, Any]) -> list[str]:
         warnings: list[str] = []
-        if len(lines) < 3:
-            warnings.append("SUBTITLES_TOO_SHORT: confirmed subtitle lines less than 3")
-        long_count = sum(1 for line in lines if len(line.strip()) > 28)
+        min_lines = int(rules.get("min_lines", 3))
+        max_line_chars = int(rules.get("max_line_chars", 28))
+        min_line_chars = int(rules.get("min_line_chars", 2))
+        flag_question_mark = bool(rules.get("flag_question_mark", True))
+        if len(lines) < min_lines:
+            warnings.append(f"SUBTITLES_TOO_SHORT: confirmed subtitle lines less than {min_lines}")
+        long_count = sum(1 for line in lines if len(line.strip()) > max_line_chars)
         if long_count > 0:
-            warnings.append(f"SUBTITLES_LONG_LINE: {long_count} lines exceed 28 chars")
-        odd_count = sum(1 for line in lines if ("?" in line or len(line.strip()) <= 2))
+            warnings.append(f"SUBTITLES_LONG_LINE: {long_count} lines exceed {max_line_chars} chars")
+        odd_count = sum(
+            1
+            for line in lines
+            if ((flag_question_mark and "?" in line) or len(line.strip()) <= min_line_chars)
+        )
         if odd_count > 0:
             warnings.append(f"SUBTITLES_LOW_CONFIDENCE_HINT: {odd_count} lines look suspicious")
         return warnings
 
-    def _mark_auto_segment_review(self, seg: dict[str, Any]) -> dict[str, Any]:
+    def _mark_auto_segment_review(self, seg: dict[str, Any], rules: Dict[str, Any]) -> dict[str, Any]:
         text = str(seg.get("text", "")).strip()
         reasons: list[str] = []
-        if len(text) <= 2:
+        min_line_chars = int(rules.get("min_line_chars", 2))
+        flag_question_mark = bool(rules.get("flag_question_mark", True))
+        if len(text) <= min_line_chars:
             reasons.append("too_short")
-        if "?" in text:
+        if flag_question_mark and "?" in text:
             reasons.append("contains_unknown_char")
         if text.count("...") > 0:
             reasons.append("ellipsis_noise")
@@ -184,6 +228,9 @@ class ApiHandler(BaseHTTPRequestHandler):
                 },
             )
             return
+        if po == "/api/v1/config/subtitles-review":
+            self._send_json(HTTPStatus.OK, self._load_subtitle_review_rules())
+            return
         if po == "/api/v1/library/videos":
             try:
                 items = scan_video_files(self.input_root)
@@ -207,7 +254,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                 raw = json.loads(seg_path.read_text(encoding="utf-8"))
                 if not isinstance(raw, list):
                     raise AppError("AUTO_SEGMENTS_NOT_FOUND", "auto segments payload is invalid", {"path": str(seg_path)})
-                items = [self._mark_auto_segment_review(dict(x)) for x in raw if isinstance(x, dict)]
+                rules = self._load_subtitle_review_rules()
+                items = [self._mark_auto_segment_review(dict(x), rules) for x in raw if isinstance(x, dict)]
                 needs_review = sum(1 for x in items if x.get("needs_review"))
                 self._send_json(
                     HTTPStatus.OK,
@@ -321,6 +369,14 @@ class ApiHandler(BaseHTTPRequestHandler):
             self._send_json(http_status_for_app_error(e.code), e.to_dict())
 
     def do_PUT(self) -> None:  # noqa: N802
+        if self._path_only() == "/api/v1/config/subtitles-review":
+            try:
+                payload = self._read_json()
+                rules = self._save_subtitle_review_rules(payload)
+                self._send_json(HTTPStatus.OK, rules)
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
         matched = self._match_video_route(self._path_only())
         if not matched:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "route not found"}})
@@ -494,7 +550,8 @@ class ApiHandler(BaseHTTPRequestHandler):
             import_lines = lyrics_state.get("import", {}).get("lines", [])
             confirmed_lines = lyrics_state.get("confirmed", {}).get("lines", import_lines)
             source = lyrics_state.get("source", {})
-            preflight_warnings = self._subtitle_preflight_warnings([str(x) for x in confirmed_lines])
+            preflight_rules = self._load_subtitle_review_rules()
+            preflight_warnings = self._subtitle_preflight_warnings([str(x) for x in confirmed_lines], preflight_rules)
 
             # Best-effort inflight cap to avoid runaway background tasks.
             recent_jobs = self.job_store.list_recent(limit=500)

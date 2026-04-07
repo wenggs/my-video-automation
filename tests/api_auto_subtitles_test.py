@@ -158,6 +158,18 @@ def run() -> None:
         assert isinstance(payload.get("items"), list), payload
         assert "needs_review_count" in payload, payload
 
+        # config roundtrip for subtitle review rules
+        status, payload = http_json("GET", "/api/v1/config/subtitles-review")
+        assert status == 200, payload
+        assert "min_lines" in payload
+        status, payload = http_json(
+            "PUT",
+            "/api/v1/config/subtitles-review",
+            {"min_lines": 2, "max_line_chars": 20, "min_line_chars": 1, "flag_question_mark": True},
+        )
+        assert status == 200, payload
+        assert payload.get("max_line_chars") == 20, payload
+
         # save reviewed lines via confirmed patch
         status, payload = http_json(
             "PATCH",
