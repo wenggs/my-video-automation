@@ -156,6 +156,7 @@ Notes:
 - If engine is not installed, API returns `AUTO_SUBTITLES_ENGINE_NOT_AVAILABLE`.
 - For deterministic local regression tests, `AUTO_SUBTITLES_FAKE=1` can be used.
 - Missing `video_relative_path` returns `VIDEO_RELATIVE_PATH_REQUIRED`; path traversal returns `RELATIVE_PATH_INVALID`.
+- Auto subtitles requests are concurrency-limited; when busy, API returns `429 AUTO_SUBTITLES_BUSY`.
 
 ## 3. Minimal vertical slice (CLI, requires ffmpeg)
 

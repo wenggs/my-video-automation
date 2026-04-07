@@ -35,6 +35,9 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     # In-flight jobs = queued + running (best-effort based on latest 500 job records).
     MAX_INFLIGHT_JOBS = 5
+    MAX_ASR_INFLIGHT = 1
+    _ASR_LOCK = threading.Lock()
+    _ASR_INFLIGHT = 0
     _PROJECT_ROOT = Path(__file__).resolve().parents[2]
     _UI_DIR = _PROJECT_ROOT / "web" / "ui"
 
@@ -285,6 +288,15 @@ class ApiHandler(BaseHTTPRequestHandler):
         m_auto = re.match(r"^/api/v1/library/videos/([^/]+)/lyrics/auto-generate$", po)
         if m_auto:
             video_id = m_auto.group(1)
+            cls = type(self)
+            with cls._ASR_LOCK:
+                if cls._ASR_INFLIGHT >= cls.MAX_ASR_INFLIGHT:
+                    self._send_json(
+                        HTTPStatus.TOO_MANY_REQUESTS,
+                        {"error": {"code": "AUTO_SUBTITLES_BUSY", "message": "too many in-flight auto subtitles requests"}},
+                    )
+                    return
+                cls._ASR_INFLIGHT += 1
             try:
                 payload = self._read_json()
                 video_rel = str(payload.get("video_relative_path", "")).strip()
@@ -320,6 +332,9 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._send_json(HTTPStatus.OK, state)
             except AppError as e:
                 self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            finally:
+                with cls._ASR_LOCK:
+                    cls._ASR_INFLIGHT = max(0, cls._ASR_INFLIGHT - 1)
             return
 
         # POST /api/v1/jobs/{id}/publish/{platform}/prepare

@@ -5,6 +5,7 @@ import os
 import shutil
 import subprocess
 import sys
+import threading
 import time
 import urllib.error
 import urllib.request
@@ -90,6 +91,7 @@ def run() -> None:
 
     env = dict(os.environ)
     env["AUTO_SUBTITLES_FAKE"] = "1"
+    env["AUTO_SUBTITLES_FAKE_SLEEP_MS"] = "1200"
     server_cmd = [
         sys.executable,
         str(ROOT / "src" / "api" / "server.py"),
@@ -149,6 +151,32 @@ def run() -> None:
         status, payload = http_json("GET", f"/api/v1/library/videos/{VIDEO_ID}/lyrics")
         assert status == 200, payload
         assert len(payload.get("confirmed", {}).get("lines", [])) > 0, payload
+
+        # concurrency guard: second request should get 429 while first is running
+        holder: dict = {}
+
+        def long_req() -> None:
+            st, pl = http_json(
+                "POST",
+                f"/api/v1/library/videos/{VIDEO_ID}/lyrics/auto-generate",
+                {"video_relative_path": clip_rel, "model": "small", "language": "zh"},
+                timeout_sec=10.0,
+            )
+            holder["status"] = st
+            holder["payload"] = pl
+
+        t = threading.Thread(target=long_req, daemon=True)
+        t.start()
+        time.sleep(0.15)
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/lyrics/auto-generate",
+            {"video_relative_path": clip_rel, "model": "small", "language": "zh"},
+        )
+        assert status == 429, payload
+        assert payload.get("error", {}).get("code") == "AUTO_SUBTITLES_BUSY", payload
+        t.join(timeout=6.0)
+        assert holder.get("status") == 200, holder.get("payload")
 
         print("API auto subtitles test passed.")
     finally:
