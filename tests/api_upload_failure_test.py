@@ -157,6 +157,9 @@ def run() -> None:
         assert douyin.get("state") == "prepare_failed", payload
         err = douyin.get("error", {})
         assert err.get("code") == "DOUYIN_UPLOAD_PAGE_UNREACHABLE", payload
+        hist = douyin.get("history", [])
+        assert isinstance(hist, list) and len(hist) >= 1, payload
+        assert hist[-1].get("event") == "prepare_failed", payload
 
         # confirm should remain blocked after prepare failed
         status, payload = http_json(

@@ -49,6 +49,17 @@ class ApiHandler(BaseHTTPRequestHandler):
         "flag_question_mark": True,
     }
 
+    def _append_publish_event(self, douyin: Dict[str, Any], *, now: str, event: str, details: Dict[str, Any] | None = None) -> Dict[str, Any]:
+        history = douyin.get("history")
+        if not isinstance(history, list):
+            history = []
+        item: Dict[str, Any] = {"at": now, "event": event}
+        if details:
+            item["details"] = details
+        history.append(item)
+        douyin["history"] = history[-20:]
+        return douyin
+
     def _subtitle_rules_path(self) -> Path:
         p = self.data_root / "config" / "subtitles_review.json"
         p.parent.mkdir(parents=True, exist_ok=True)
@@ -643,6 +654,12 @@ class ApiHandler(BaseHTTPRequestHandler):
                     "manual_confirm_required": True,
                     "prepare_details": prep.details,
                 }
+                self._append_publish_event(
+                    douyin,
+                    now=now,
+                    event="prepare_succeeded",
+                    details={"state": prep.state},
+                )
                 publish["douyin"] = douyin
                 updated = self.job_store.update(job_id, {"publish": publish})
                 self._send_json(HTTPStatus.OK, updated)
@@ -653,12 +670,24 @@ class ApiHandler(BaseHTTPRequestHandler):
                     "video_path": video_path,
                     "error": {"code": e.code, "message": e.message, "details": e.details},
                 }
+                self._append_publish_event(
+                    douyin,
+                    now=now,
+                    event="prepare_failed",
+                    details={"code": e.code},
+                )
                 publish["douyin"] = douyin
                 updated = self.job_store.update(job_id, {"publish": publish})
                 self._send_json(http_status_for_app_error(e.code), updated)
             return
 
         if action == "confirm":
+            if str(douyin.get("state") or "") == "published":
+                self._send_json(
+                    HTTPStatus.CONFLICT,
+                    {"error": {"code": "PUBLISH_ALREADY_CONFIRMED", "message": "publish already confirmed"}},
+                )
+                return
             st = str(douyin.get("state") or "")
             if st not in ("upload_prepared", "upload_prepared_manual"):
                 self._send_json(
@@ -675,6 +704,12 @@ class ApiHandler(BaseHTTPRequestHandler):
                 douyin["platform_post_id"] = platform_post_id
             if published_url:
                 douyin["published_url"] = published_url
+            self._append_publish_event(
+                douyin,
+                now=now,
+                event="confirm_published",
+                details={"published_via": "manual_confirm"},
+            )
             publish["douyin"] = douyin
             updated = self.job_store.update(job_id, {"publish": publish})
             self._send_json(HTTPStatus.OK, updated)

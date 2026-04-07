@@ -162,6 +162,9 @@ def run() -> None:
         publish = payload.get("publish", {}).get("douyin", {})
         assert publish.get("state") in ("upload_prepared", "upload_prepared_manual"), payload
         assert publish.get("draft_url"), payload
+        hist = publish.get("history", [])
+        assert isinstance(hist, list) and len(hist) >= 1, payload
+        assert hist[-1].get("event") == "prepare_succeeded", payload
 
         # 5) Confirm publish (stub)
         status, payload = http_json(
@@ -174,6 +177,18 @@ def run() -> None:
         assert publish.get("state") == "published", payload
         assert publish.get("published_via") == "manual_confirm", payload
         assert publish.get("platform_post_id") == "douyin-post-001", payload
+        hist = publish.get("history", [])
+        assert isinstance(hist, list) and len(hist) >= 2, payload
+        assert hist[-1].get("event") == "confirm_published", payload
+
+        # 6) Confirm again should be blocked (idempotency guard)
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/jobs/{job_id}/publish/douyin/confirm",
+            {"platform_post_id": "douyin-post-001"},
+        )
+        assert status == 409, payload
+        assert payload.get("error", {}).get("code") == "PUBLISH_ALREADY_CONFIRMED", payload
 
         print("API upload stub test passed.")
     finally:

@@ -118,6 +118,8 @@ Notes:
 - If auto prepare succeeds, `publish.douyin.state` is `upload_prepared`.
 - If fallback is used, `publish.douyin.state` is `upload_prepared_manual`, and fallback cause is available in `publish.douyin.prepare_details.fallback_error`.
 - If strict mode is enabled (`DOUYIN_UPLOAD_STRICT=1`), auto prepare failures do not fallback; API returns error status and stores `publish.douyin.state = prepare_failed` with structured `publish.douyin.error`.
+- Publish state now includes a lightweight timeline under `publish.douyin.history` (latest events such as `prepare_succeeded`, `prepare_failed`, `confirm_published`).
+- Repeating `confirm` after already published is rejected with **409** `PUBLISH_ALREADY_CONFIRMED` (idempotency guard).
 - Typical strict errors:
   - `DOUYIN_UPLOAD_PAGE_UNREACHABLE`
   - `DOUYIN_UPLOAD_SELECTOR_NOT_FOUND`
