@@ -72,4 +72,5 @@
 - [x] Phase 19.1：低置信度分段标注 + auto-segments API + UI 最小逐段校对保存
 - [x] Phase 19.2：`POST /jobs` 导出前字幕一致性告警（preflight_warnings）
 - [x] Phase 19.3：低置信度规则可配置化（`/api/v1/config/subtitles-review` + UI 配置面板）
+- [x] Phase 18.2：发布说明升级为 v0.6.0 Final + 新增演示脚本清单文档
 

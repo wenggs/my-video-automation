@@ -96,3 +96,5 @@ python "tests/vertical_slice_test.py"
 - [docs/PRD.md](docs/PRD.md) — MVP scope and acceptance
 - [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md) — components and data shapes
 - [docs/DEMO.md](docs/DEMO.md) — runbook, sample requests, HTTP status reference
+- [docs/RELEASE_NOTES_v0.6.0.md](docs/RELEASE_NOTES_v0.6.0.md) — v0.6.0 release notes
+- [docs/DEMO_SCRIPT_v0.6.0.md](docs/DEMO_SCRIPT_v0.6.0.md) — live demo checklist/script

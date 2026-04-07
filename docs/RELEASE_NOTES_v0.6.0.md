@@ -1,6 +1,7 @@
-# Release Notes v0.6.0 (Draft)
+# Release Notes v0.6.0
 
 Date: 2026-04-07
+Status: Final
 
 ## Highlights
 
@@ -8,6 +9,7 @@ Date: 2026-04-07
 - Added ASR quality presets and retry flow in UI.
 - Added ASR request concurrency guard and best-effort cancellation.
 - Improved observability for auto-subtitle runs (model/segments/elapsed/beam).
+- Added minimal subtitle review workflow and configurable review thresholds.
 
 ## New Capabilities
 
@@ -30,12 +32,30 @@ Date: 2026-04-07
   - Cancels in-flight ASR request by `request_id` (best-effort).
   - Returns `200` with `state: cancelling` if request exists.
 
+- API: `GET /api/v1/library/videos/{id}/lyrics/auto-segments`
+  - Returns auto ASR segments with review hints:
+    - `needs_review`
+    - `review_reasons`
+    - `needs_review_count`
+
+- API: `GET/PUT /api/v1/config/subtitles-review`
+  - Configures subtitle review/preflight rules:
+    - `min_lines`
+    - `max_line_chars`
+    - `min_line_chars`
+    - `flag_question_mark`
+
 - UI (`/ui`)
   - ASR quality presets: `fast / standard / high`.
   - Manual ASR params: `model`, `language`.
   - One-click auto-generate, retry, and cancel.
   - Displays current ASR `request_id`.
   - Displays ASR run metrics (`model/segments/elapsed/beam`).
+  - Provides minimal subtitle review editor:
+    - load auto-segments
+    - filter by `needs_review`
+    - save reviewed lines to confirmed lyrics
+  - Provides subtitle review rules editor (load/save).
 
 ## Reliability and Guardrails
 
@@ -49,6 +69,7 @@ Date: 2026-04-07
   - `AUTO_SUBTITLES_ENGINE_NOT_AVAILABLE`
   - `AUTO_SUBTITLES_CANCELLED`
   - `AUTO_SUBTITLES_BUSY`
+  - `AUTO_SEGMENTS_NOT_FOUND`
 
 ## Compatibility Notes
 
@@ -63,6 +84,8 @@ Date: 2026-04-07
   - invalid input paths/params
   - concurrency saturation (`429`)
   - cancellation flow (`cancel` + `409 AUTO_SUBTITLES_CANCELLED`)
+  - auto-segments read and reviewed-lines save
+  - subtitle review rules config roundtrip (`GET/PUT /api/v1/config/subtitles-review`)
 - `tests/api_smoke_test.py`
   - end-to-end regression unaffected by ASR enhancements
 
@@ -78,4 +101,8 @@ Date: 2026-04-07
 ## Suggested Tag
 
 - `v0.6.0-asr-workflow`
+
+## Demo Script
+
+- See `docs/DEMO_SCRIPT_v0.6.0.md` for step-by-step demo flow and checkpoints.
 
