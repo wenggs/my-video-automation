@@ -188,13 +188,14 @@ Recommended walkthrough:
 1. Verify the top **Workspace config** card shows `input_root` and `data_root` from `GET /api/v1/config`.
 2. In **Create job**, fill `video_asset_id`, `words_relative_path`, and optional `video_relative_path`.
 3. Use **Auto-generate lyrics** (with quality/model/language), and if needed click **Retry auto lyrics**.
-4. Check `auto details` line for model/segments/elapsed/beam.
-5. Click **Create** to run full pipeline and keep **auto refresh (2s)** enabled for status transitions.
-6. Use **Filter** (`running`, `failed`, `succeeded`, etc.) to focus on target jobs.
-7. For failed jobs, expand **job error details** / **prepare error details**, then click:
+4. During in-flight ASR, use **Cancel auto lyrics** (request_id-based best-effort cancel) when needed.
+5. Check `auto details` line for model/segments/elapsed/beam and current `request_id`.
+6. Click **Create** to run full pipeline and keep **auto refresh (2s)** enabled for status transitions.
+7. Use **Filter** (`running`, `failed`, `succeeded`, etc.) to focus on target jobs.
+8. For failed jobs, expand **job error details** / **prepare error details**, then click:
    - `Copy job error JSON`
    - `Copy prepare error JSON`
-8. For publish flow:
+9. For publish flow:
    - click **Prepare upload**
    - then **Confirm publish** (optionally input `platform_post_id` and `published_url`)
 

@@ -62,9 +62,11 @@
         <label class="muted">language <input id="fAsrLanguage" style="width:60px;" value="zh" /></label>
         <button id="btnAutoLyrics">Auto-generate lyrics</button>
         <button id="btnRetryAutoLyrics">Retry auto lyrics</button>
+        <button id="btnCancelAutoLyrics">Cancel auto lyrics</button>
         <button id="btnCreateJob">Create</button>
       </div>
       <div class="muted">Only relative paths under server input_root are allowed.</div>
+      <div class="muted">current auto request_id: <code id="autoRequestId">-</code></div>
       <div id="autoInfo" class="muted" style="margin-top:6px;"></div>
     </div>
 
@@ -88,6 +90,22 @@
       const API_BASE = '/api/v1';
       const LS_KEY = 'video-automation-ui-v1';
       let autoTimer = null;
+      let autoInFlight = false;
+
+      function newRequestId() {
+        const now = Date.now().toString(36);
+        const rand = Math.random().toString(36).slice(2, 10);
+        return `asr-${now}-${rand}`;
+      }
+
+      function setAutoUiState() {
+        const btnAuto = document.getElementById('btnAutoLyrics');
+        const btnRetry = document.getElementById('btnRetryAutoLyrics');
+        const btnCancel = document.getElementById('btnCancelAutoLyrics');
+        btnAuto.disabled = autoInFlight;
+        btnRetry.disabled = autoInFlight;
+        btnCancel.disabled = !autoInFlight || !window.__lastAutoPayload || !window.__lastAutoPayload.request_id;
+      }
 
       function loadPrefs() {
         try {
@@ -144,6 +162,8 @@
         const model = details.model || '-';
         const beam = details.beam_size != null ? String(details.beam_size) : '-';
         info.textContent = `auto details: model=${model}, segments=${segs}, elapsed=${elapsed}, beam=${beam}`;
+        const rid = (res && res.auto_generate && res.auto_generate.request_id) ? String(res.auto_generate.request_id) : (window.__lastAutoPayload && window.__lastAutoPayload.request_id ? String(window.__lastAutoPayload.request_id) : '-');
+        document.getElementById('autoRequestId').textContent = rid;
       }
 
       function shortId(id) {
@@ -351,8 +371,12 @@
         msg.textContent = 'Auto-generating lyrics...';
         msg.className = 'muted';
         savePrefs();
+        autoInFlight = true;
+        setAutoUiState();
         try {
+          const requestId = newRequestId();
           const reqBody = {
+            request_id: requestId,
             video_relative_path: videoRelativePath,
             model,
             language,
@@ -360,6 +384,7 @@
             vad_filter: preset.vad_filter,
           };
           window.__lastAutoPayload = { video_asset_id: videoAssetId, ...reqBody };
+          document.getElementById('autoRequestId').textContent = requestId;
           const res = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/lyrics/auto-generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -374,6 +399,9 @@
         } catch (e) {
           msg.textContent = 'Auto-generate failed: ' + e.message;
           msg.className = 'err';
+        } finally {
+          autoInFlight = false;
+          setAutoUiState();
         }
       }
 
@@ -387,11 +415,17 @@
         }
         msg.textContent = 'Retrying auto-generate...';
         msg.className = 'muted';
+        autoInFlight = true;
+        setAutoUiState();
         try {
+          const requestId = newRequestId();
+          window.__lastAutoPayload.request_id = requestId;
+          document.getElementById('autoRequestId').textContent = requestId;
           const res = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(payload.video_asset_id)}/lyrics/auto-generate`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json; charset=utf-8' },
             body: JSON.stringify({
+              request_id: requestId,
               video_relative_path: payload.video_relative_path,
               model: payload.model,
               language: payload.language,
@@ -406,6 +440,32 @@
           await refresh();
         } catch (e) {
           msg.textContent = 'Retry failed: ' + e.message;
+          msg.className = 'err';
+        } finally {
+          autoInFlight = false;
+          setAutoUiState();
+        }
+      }
+
+      async function cancelAutoGenerateLyrics() {
+        const msg = document.getElementById('msg');
+        const payload = window.__lastAutoPayload;
+        const requestId = payload && payload.request_id ? String(payload.request_id) : '';
+        if (!requestId || !payload.video_asset_id) {
+          msg.textContent = 'Cancel failed: no in-flight request_id found.';
+          msg.className = 'err';
+          return;
+        }
+        try {
+          await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(payload.video_asset_id)}/lyrics/auto-generate/cancel`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ request_id: requestId }),
+          });
+          msg.textContent = `Cancel requested for ${requestId}.`;
+          msg.className = 'ok';
+        } catch (e) {
+          msg.textContent = 'Cancel failed: ' + e.message;
           msg.className = 'err';
         }
       }
@@ -444,8 +504,10 @@
       document.getElementById('fAsrLanguage').addEventListener('input', savePrefs);
       document.getElementById('btnAutoLyrics').addEventListener('click', autoGenerateLyrics);
       document.getElementById('btnRetryAutoLyrics').addEventListener('click', retryAutoGenerateLyrics);
+      document.getElementById('btnCancelAutoLyrics').addEventListener('click', cancelAutoGenerateLyrics);
       document.getElementById('btnCreateJob').addEventListener('click', createJob);
       applyPrefs();
+      setAutoUiState();
       setupAutoRefresh();
       refresh();
     </script>
