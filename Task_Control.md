@@ -23,6 +23,7 @@
 - Phase 12：UI 上传准备/发布确认（stub）+ `GET /ui` 静态页展示最近 job
 - Phase 13：Douyin 上传服务层（manual + Playwright auto-first fallback）接入 prepare API
 - Phase 14 Spike：Playwright 上传页选择器/会话复用 PoC（独立脚本）
+- Phase 15（进行中）：发布链路增强（confirm 记录平台发布信息）+ prepare 失败稳健性（结构化失败状态/错误详情）+ UI 失败可视化 + 回归测试
 
 ## Todo
 - [x] Recreate required folders and files
@@ -45,4 +46,15 @@
 - [x] Phase 12：UI 上传准备/发布确认（stub）+ `web/ui/index.html` 页面与对应 API
 - [x] Phase 13：上传服务层接入（`DOUYIN_UPLOAD_MODE=auto` + manual fallback）
 - [x] Phase 14 Spike：`src/spikes/douyin_upload_playwright_poc.py` 可独立验证上传流程关键节点
+- [x] Phase 15.1：confirm 支持记录 `platform_post_id` / `published_url`（manual confirm）
+- [x] Phase 15.2：prepare 失败写入 `publish.douyin.state=prepare_failed` 与结构化错误
+- [x] Phase 15.3：UI 展示 prepare fallback/error 详情并支持失败后重试
+- [x] Phase 15.4：新增 `tests/api_upload_failure_test.py` 覆盖 prepare 失败分支
+- [x] Phase 15.5：UI 新增 job 创建表单（video/words/path）+ DEMO 文档补 strict 模式与 confirm 平台字段
+- [x] Phase 15.6：UI 增强自动轮询、状态过滤、失败详情展开（job.error / prepare.error）
+- [x] Phase 15.7：UI 失败详情支持一键复制错误 JSON（job.error / prepare.error）
+- [x] Phase 15.8：UI 本地记忆（create 表单 + 过滤 + 自动轮询选项，刷新后恢复）
+- [x] Phase 15.9：UI 顶部展示 `/api/v1/config`（input_root/data_root）并随 refresh 更新
+- [x] Phase 15.10：`docs/DEMO.md` 补 UI 演示走查（create/filter/autorefresh/error-copy/config）
+- [x] Phase 15.11：`README.md` 补“当前可演示能力清单 + 一次性演示顺序”
 

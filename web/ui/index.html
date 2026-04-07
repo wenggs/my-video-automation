@@ -25,7 +25,35 @@
 
     <div class="row">
       <button id="btnRefresh">Refresh</button>
+      <label class="muted">Filter
+        <select id="fStatus" style="margin-left:4px;">
+          <option value="all">all</option>
+          <option value="queued">queued</option>
+          <option value="running">running</option>
+          <option value="failed">failed</option>
+          <option value="succeeded">succeeded</option>
+          <option value="cancelled">cancelled</option>
+        </select>
+      </label>
+      <label class="muted"><input type="checkbox" id="fAutoPoll" checked /> auto refresh (2s)</label>
       <span class="muted">UI uses backend stubs for upload (open/confirm transitions only).</span>
+    </div>
+
+    <div class="card" style="margin-top: 12px;">
+      <div style="font-weight:bold; margin-bottom:8px;">Workspace config</div>
+      <div class="muted">input_root: <code id="cfgInputRoot">-</code></div>
+      <div class="muted">data_root: <code id="cfgDataRoot">-</code></div>
+    </div>
+
+    <div class="card" style="margin-top: 12px;">
+      <div style="font-weight:bold; margin-bottom:8px;">Create job</div>
+      <div class="row">
+        <label class="muted">video_asset_id <input id="fVideoAssetId" style="width:200px;" value="demo-video-001" /></label>
+        <label class="muted">words_relative_path <input id="fWordsPath" style="width:220px;" value="transcript_words.json" /></label>
+        <label class="muted">video_relative_path <input id="fVideoPath" style="width:220px;" placeholder="optional, e.g. _smoke_sample.mp4" /></label>
+        <button id="btnCreateJob">Create</button>
+      </div>
+      <div class="muted">Only relative paths under server input_root are allowed.</div>
     </div>
 
     <div id="msg" class="muted"></div>
@@ -46,10 +74,58 @@
 
     <script>
       const API_BASE = '/api/v1';
+      const LS_KEY = 'video-automation-ui-v1';
+      let autoTimer = null;
+
+      function loadPrefs() {
+        try {
+          const raw = localStorage.getItem(LS_KEY);
+          return raw ? JSON.parse(raw) : {};
+        } catch (_) {
+          return {};
+        }
+      }
+
+      function savePrefs() {
+        try {
+          const prefs = {
+            videoAssetId: document.getElementById('fVideoAssetId').value || '',
+            wordsPath: document.getElementById('fWordsPath').value || '',
+            videoPath: document.getElementById('fVideoPath').value || '',
+            status: document.getElementById('fStatus').value || 'all',
+            autoPoll: !!document.getElementById('fAutoPoll').checked,
+          };
+          localStorage.setItem(LS_KEY, JSON.stringify(prefs));
+        } catch (_) {
+          // non-fatal
+        }
+      }
+
+      function applyPrefs() {
+        const prefs = loadPrefs();
+        if (prefs.videoAssetId) document.getElementById('fVideoAssetId').value = String(prefs.videoAssetId);
+        if (prefs.wordsPath) document.getElementById('fWordsPath').value = String(prefs.wordsPath);
+        if (prefs.videoPath) document.getElementById('fVideoPath').value = String(prefs.videoPath);
+        if (prefs.status) document.getElementById('fStatus').value = String(prefs.status);
+        if (typeof prefs.autoPoll === 'boolean') document.getElementById('fAutoPoll').checked = prefs.autoPoll;
+      }
 
       function shortId(id) {
         if (!id) return '';
         return String(id).slice(0, 8) + '…';
+      }
+
+      function escapeHtml(v) {
+        return String(v || '')
+          .replaceAll('&', '&amp;')
+          .replaceAll('<', '&lt;')
+          .replaceAll('>', '&gt;')
+          .replaceAll('"', '&quot;')
+          .replaceAll("'", '&#39;');
+      }
+
+      function toAttrJson(obj) {
+        return escapeHtml(JSON.stringify(obj || {}));
       }
 
       async function fetchJson(url, opts) {
@@ -68,6 +144,10 @@
         return data.items || [];
       }
 
+      async function loadConfig() {
+        return fetchJson(API_BASE + '/config');
+      }
+
       function renderJob(job) {
         const artifacts = job.artifacts || {};
         const publish = job.publish || {};
@@ -75,11 +155,16 @@
         const douyinState = douyin.state || '';
 
         const hasVideo = Boolean(artifacts.douyin_vertical);
-        const canPrepare = job.status === 'succeeded' && hasVideo && (!douyinState || douyinState === 'not_prepared');
+        const canPrepare = job.status === 'succeeded' && hasVideo && (!douyinState || douyinState === 'not_prepared' || douyinState === 'prepare_failed' || douyinState === 'upload_prepared_manual');
         const canConfirm = douyinState === 'upload_prepared';
 
         const preparedUrl = douyin.draft_url ? String(douyin.draft_url) : '';
         const videoUrl = `${API_BASE}/jobs/${job.id}/artifacts/douyin_vertical`;
+        const err = douyin.error || null;
+        const fallbackErr = (douyin.prepare_details && douyin.prepare_details.fallback_error) ? douyin.prepare_details.fallback_error : null;
+        const runError = job.error || null;
+        const runErrorJson = runError ? escapeHtml(JSON.stringify(runError, null, 2)) : '';
+        const prepareErrorJson = err ? escapeHtml(JSON.stringify(err, null, 2)) : '';
 
         return `
           <tr>
@@ -93,6 +178,10 @@
               ${hasVideo ? `<div style="margin-top:6px;"><a href="${videoUrl}" target="_blank">Open video</a> · <a href="${videoUrl}" download>Download</a></div>` : ''}
               <div><b>publish.douyin:</b> <code>${douyinState || '-'}</code></div>
               ${preparedUrl ? `<div style="margin-top:6px;"><a href="${preparedUrl}" target="_blank">Open prepared draft</a></div>` : ''}
+              ${fallbackErr ? `<div class="muted" style="margin-top:6px;">fallback: <code>${fallbackErr.code || ''}</code> ${fallbackErr.message || ''}</div>` : ''}
+              ${err ? `<div class="err" style="margin-top:6px;">prepare failed: ${err.code || ''} ${err.message || ''}</div>` : ''}
+              ${runError ? `<details style="margin-top:6px;"><summary class="err">job error details</summary><pre class="err" style="margin:6px 0 0;">${runErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","job", "${toAttrJson(runError)}")'>Copy job error JSON</button></details>` : ''}
+              ${err ? `<details style="margin-top:6px;"><summary class="err">prepare error details</summary><pre class="err" style="margin:6px 0 0;">${prepareErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","prepare", "${toAttrJson(err)}")'>Copy prepare error JSON</button></details>` : ''}
             </td>
             <td>
               <div class="row" style="margin:0;">
@@ -111,14 +200,29 @@
         const msg = document.getElementById('msg');
         msg.textContent = 'Loading...';
         try {
-          const jobs = await loadJobs();
+          const [cfg, jobs] = await Promise.all([loadConfig(), loadJobs()]);
+          document.getElementById('cfgInputRoot').textContent = String(cfg.input_root || '-');
+          document.getElementById('cfgDataRoot').textContent = String(cfg.data_root || '-');
+          const statusFilter = String(document.getElementById('fStatus').value || 'all');
+          const filtered = statusFilter === 'all' ? jobs : jobs.filter((j) => String(j.status || '') === statusFilter);
           const body = document.getElementById('jobsBody');
-          body.innerHTML = jobs.map(renderJob).join('');
-          msg.textContent = 'OK';
+          body.innerHTML = filtered.map(renderJob).join('');
+          msg.textContent = `OK (${filtered.length}/${jobs.length})`;
+          msg.className = 'muted';
         } catch (e) {
           msg.textContent = 'Error: ' + e.message;
           msg.className = 'err';
         }
+      }
+
+      function setupAutoRefresh() {
+        if (autoTimer) {
+          clearInterval(autoTimer);
+          autoTimer = null;
+        }
+        const enabled = document.getElementById('fAutoPoll').checked;
+        savePrefs();
+        if (enabled) autoTimer = setInterval(refresh, 2000);
       }
 
       window.__prepare = async function(jobId) {
@@ -130,7 +234,7 @@
             headers: { 'Content-Type': 'application/json; charset=utf-8' },
             body: JSON.stringify({}),
           });
-          msg.textContent = 'Prepared.';
+          msg.textContent = 'Prepare request completed.';
           msg.className = 'ok';
           await refresh();
         } catch (e) {
@@ -142,13 +246,15 @@
       window.__confirm = async function(jobId) {
         const msg = document.getElementById('msg');
         msg.textContent = 'Confirming...';
+        const postId = window.prompt('Douyin post id (optional):', '') || '';
+        const publishedUrl = window.prompt('Published URL (optional):', '') || '';
         try {
           await fetchJson(API_BASE + `/jobs/${jobId}/publish/douyin/confirm`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json; charset=utf-8' },
-            body: JSON.stringify({}),
+            body: JSON.stringify({ platform_post_id: postId.trim(), published_url: publishedUrl.trim() }),
           });
-          msg.textContent = 'Published (stub).';
+          msg.textContent = 'Published confirmed.';
           msg.className = 'ok';
           await refresh();
         } catch (e) {
@@ -157,7 +263,68 @@
         }
       };
 
+      async function createJob() {
+        const msg = document.getElementById('msg');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        const wordsRelativePath = String(document.getElementById('fWordsPath').value || '').trim();
+        const videoRelativePath = String(document.getElementById('fVideoPath').value || '').trim();
+        if (!videoAssetId) {
+          msg.textContent = 'Create failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
+        }
+        msg.textContent = 'Creating job...';
+        msg.className = 'muted';
+        const body = { video_asset_id: videoAssetId, words_relative_path: wordsRelativePath || 'transcript_words.json' };
+        if (videoRelativePath) body.video_relative_path = videoRelativePath;
+        savePrefs();
+        try {
+          const res = await fetchJson(API_BASE + '/jobs', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify(body),
+          });
+          msg.textContent = `Job created: ${shortId(res.id)} (${res.status || 'queued'})`;
+          msg.className = 'ok';
+          await refresh();
+        } catch (e) {
+          msg.textContent = 'Create failed: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
+      window.__copyJson = async function(jobId, kind, encoded) {
+        const msg = document.getElementById('msg');
+        try {
+          const raw = String(encoded || '')
+            .replaceAll('&quot;', '"')
+            .replaceAll('&#39;', "'")
+            .replaceAll('&lt;', '<')
+            .replaceAll('&gt;', '>')
+            .replaceAll('&amp;', '&');
+          const pretty = JSON.stringify(JSON.parse(raw), null, 2);
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(pretty);
+          } else {
+            throw new Error('clipboard API unavailable');
+          }
+          msg.textContent = `Copied ${kind} error JSON for ${shortId(jobId)}.`;
+          msg.className = 'ok';
+        } catch (e) {
+          msg.textContent = 'Copy failed: ' + (e && e.message ? e.message : String(e));
+          msg.className = 'err';
+        }
+      };
+
       document.getElementById('btnRefresh').addEventListener('click', refresh);
+      document.getElementById('fStatus').addEventListener('change', () => { savePrefs(); refresh(); });
+      document.getElementById('fAutoPoll').addEventListener('change', setupAutoRefresh);
+      document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
+      document.getElementById('fWordsPath').addEventListener('input', savePrefs);
+      document.getElementById('fVideoPath').addEventListener('input', savePrefs);
+      document.getElementById('btnCreateJob').addEventListener('click', createJob);
+      applyPrefs();
+      setupAutoRefresh();
       refresh();
     </script>
   </body>

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 import shutil
 import subprocess
 import sys
@@ -11,9 +12,9 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SPIKE = ROOT / "tests" / "fixtures" / "spike"
-PORT = 8016
+PORT = 8017
 BASE = f"http://127.0.0.1:{PORT}"
-VIDEO_ID = "upload-stub-video-001"
+VIDEO_ID = "upload-failure-video-001"
 
 
 def http_json(method: str, path: str, payload: dict | None = None, *, timeout_sec: float = 8.0) -> tuple[int, dict]:
@@ -94,13 +95,19 @@ def wait_job(job_id: str, *, timeout_sec: float = 120.0, poll_sec: float = 0.15)
 
 def run() -> None:
     if not shutil.which("ffmpeg"):
-        print("SKIP: ffmpeg not on PATH (upload stub test requires export video)")
+        print("SKIP: ffmpeg not on PATH (upload failure test requires export video)")
         return
 
-    data_root = ROOT / ".local-data-upload-stub"
+    data_root = ROOT / ".local-data-upload-failure"
     if data_root.exists():
         shutil.rmtree(data_root)
     data_root.mkdir(parents=True, exist_ok=True)
+
+    env = dict(os.environ)
+    env["DOUYIN_UPLOAD_MODE"] = "auto"
+    env["DOUYIN_UPLOAD_STRICT"] = "1"
+    env["DOUYIN_UPLOAD_URL"] = "https://127.0.0.1.invalid/upload"
+    env["DOUYIN_UPLOAD_TIMEOUT_MS"] = "1000"
 
     server_cmd = [
         sys.executable,
@@ -114,11 +121,10 @@ def run() -> None:
         "--data-root",
         str(data_root),
     ]
-    server = subprocess.Popen(server_cmd, cwd=str(ROOT))
+    server = subprocess.Popen(server_cmd, cwd=str(ROOT), env=env)
     try:
         wait_health()
 
-        # 1) PUT lyrics import
         status, payload = http_json(
             "PUT",
             f"/api/v1/library/videos/{VIDEO_ID}/lyrics",
@@ -126,18 +132,9 @@ def run() -> None:
         )
         assert status == 200, payload
 
-        # 2) PATCH confirmed micro-tuning
-        status, payload = http_json(
-            "PATCH",
-            f"/api/v1/library/videos/{VIDEO_ID}/lyrics/confirmed",
-            {"lines": ["你说风吹过我们的夏天（冒烟测试）", "人潮里我听见你的名字", "这一刻全场都在合唱"]},
-        )
-        assert status == 200, payload
-
         clip_rel = ensure_smoke_clip_relative_path()
         assert clip_rel
 
-        # 3) POST job
         status, payload = http_json(
             "POST",
             "/api/v1/jobs",
@@ -146,36 +143,31 @@ def run() -> None:
         assert status == 202, payload
         job_id = payload.get("id")
         assert job_id
+        _ = wait_job(job_id)
 
-        job = wait_job(job_id)
-        assert job.get("status") == "succeeded", job
-        assert (job.get("artifacts") or {}).get("douyin_vertical"), job
-
-        # 4) Prepare publish (stub)
+        # prepare should fail in strict mode due to unreachable upload page
         status, payload = http_json(
             "POST",
             f"/api/v1/jobs/{job_id}/publish/douyin/prepare",
             {},
-            timeout_sec=90.0,
+            timeout_sec=20.0,
         )
-        assert status == 200, payload
-        publish = payload.get("publish", {}).get("douyin", {})
-        assert publish.get("state") in ("upload_prepared", "upload_prepared_manual"), payload
-        assert publish.get("draft_url"), payload
+        assert status == 422, payload
+        douyin = payload.get("publish", {}).get("douyin", {})
+        assert douyin.get("state") == "prepare_failed", payload
+        err = douyin.get("error", {})
+        assert err.get("code") == "DOUYIN_UPLOAD_PAGE_UNREACHABLE", payload
 
-        # 5) Confirm publish (stub)
+        # confirm should remain blocked after prepare failed
         status, payload = http_json(
             "POST",
             f"/api/v1/jobs/{job_id}/publish/douyin/confirm",
-            {"platform_post_id": "douyin-post-001", "published_url": "https://www.douyin.com/video/123"},
+            {},
         )
-        assert status == 200, payload
-        publish = payload.get("publish", {}).get("douyin", {})
-        assert publish.get("state") == "published", payload
-        assert publish.get("published_via") == "manual_confirm", payload
-        assert publish.get("platform_post_id") == "douyin-post-001", payload
+        assert status == 409, payload
+        assert payload.get("error", {}).get("code") == "PUBLISH_NOT_PREPARED", payload
 
-        print("API upload stub test passed.")
+        print("API upload failure regression passed.")
     finally:
         server.terminate()
         try:

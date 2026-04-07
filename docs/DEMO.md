@@ -97,16 +97,17 @@ If the job is still `queued` / `running`, it becomes `cancelled`. If it is alrea
 
 For MVP, the HTTP API supports a **manual publish confirmation flow** with an upload service adapter.
 
-1. Prepare upload draft (sets `publish.douyin.state = upload_prepared`)
+1. Prepare upload draft
 
 ```powershell
 Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8011/api/v1/jobs/<job-id>/publish/douyin/prepare" -ContentType 'application/json' -Body (@{} | ConvertTo-Json)
 ```
 
-2. Confirm publish (sets `publish.douyin.state = published`)
+2. Confirm publish (manual confirmation, with optional platform result fields)
 
 ```powershell
-Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8011/api/v1/jobs/<job-id>/publish/douyin/confirm" -ContentType 'application/json' -Body (@{} | ConvertTo-Json)
+$body=@{ platform_post_id='douyin-post-001'; published_url='https://www.douyin.com/video/123' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8011/api/v1/jobs/<job-id>/publish/douyin/confirm" -ContentType 'application/json' -Body $body
 ```
 
 If `artifacts.douyin_vertical` is missing, the server returns **422** (`ARTIFACT_MISSING`).
@@ -114,6 +115,13 @@ If `artifacts.douyin_vertical` is missing, the server returns **422** (`ARTIFACT
 Notes:
 - Default mode opens Douyin upload page in the local browser and returns `upload_prepared_manual` with instructions under `publish.douyin.prepare_details`.
 - Set env `DOUYIN_UPLOAD_MODE=auto` to try Playwright persistent-session upload first (best effort). If Playwright is unavailable, it falls back to manual mode.
+- If auto prepare succeeds, `publish.douyin.state` is `upload_prepared`.
+- If fallback is used, `publish.douyin.state` is `upload_prepared_manual`, and fallback cause is available in `publish.douyin.prepare_details.fallback_error`.
+- If strict mode is enabled (`DOUYIN_UPLOAD_STRICT=1`), auto prepare failures do not fallback; API returns error status and stores `publish.douyin.state = prepare_failed` with structured `publish.douyin.error`.
+- Typical strict errors:
+  - `DOUYIN_UPLOAD_PAGE_UNREACHABLE`
+  - `DOUYIN_UPLOAD_SELECTOR_NOT_FOUND`
+  - `DOUYIN_PLAYWRIGHT_NOT_AVAILABLE`
 
 ## 3. Minimal vertical slice (CLI, requires ffmpeg)
 
@@ -131,7 +139,33 @@ Expect:
 
 Regression: `python "tests/vertical_slice_test.py"`.
 
-## 4. One-command smoke test
+## 4. UI demo walkthrough (`/ui`)
+
+Open:
+
+```text
+http://127.0.0.1:8011/ui
+```
+
+Recommended walkthrough:
+
+1. Verify the top **Workspace config** card shows `input_root` and `data_root` from `GET /api/v1/config`.
+2. In **Create job**, fill `video_asset_id`, `words_relative_path`, and optional `video_relative_path`, then click **Create**.
+3. Keep **auto refresh (2s)** enabled to watch status transitions (`queued -> running -> succeeded/failed`).
+4. Use **Filter** (`running`, `failed`, `succeeded`, etc.) to focus on target jobs.
+5. For failed jobs, expand **job error details** / **prepare error details**, then click:
+   - `Copy job error JSON`
+   - `Copy prepare error JSON`
+6. For publish flow:
+   - click **Prepare upload**
+   - then **Confirm publish** (optionally input `platform_post_id` and `published_url`)
+
+UI notes:
+- Form/filter/auto-refresh preferences are persisted in browser `localStorage`.
+- Successful export jobs provide `Open video` and `Download` links for `douyin_vertical`.
+- Logs are available from each row via `logs` link.
+
+## 5. One-command smoke test
 
 ```powershell
 python "tests/api_smoke_test.py"
@@ -145,7 +179,7 @@ API smoke test passed.
 API failure regression passed.
 ```
 
-## 5. Demo artifacts
+## 6. Demo artifacts
 
 After a succeeded job:
 - `official_lyrics.json`
@@ -158,7 +192,7 @@ After a succeeded job:
 
 Paths are returned in the job response under `artifacts`.
 
-## 6. HTTP status reference (MVP)
+## 7. HTTP status reference (MVP)
 
 These codes are returned for synchronous routes and for the **`POST /api/v1/jobs`** acceptance response. **Pipeline failures after enqueue** do not change the POST status code: use **`GET /api/v1/jobs/{id}`** and read **`status`** / **`error`**.
 

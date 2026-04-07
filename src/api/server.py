@@ -283,14 +283,18 @@ class ApiHandler(BaseHTTPRequestHandler):
         m_prepare = re.match(r"^/api/v1/jobs/([^/]+)/publish/([^/]+)/prepare$", po)
         if m_prepare:
             job_id, platform = m_prepare.group(1), m_prepare.group(2)
-            self._handle_publish(job_id=job_id, platform=platform, action="prepare")
+            self._handle_publish(job_id=job_id, platform=platform, action="prepare", payload={})
             return
 
         # POST /api/v1/jobs/{id}/publish/{platform}/confirm
         m_confirm = re.match(r"^/api/v1/jobs/([^/]+)/publish/([^/]+)/confirm$", po)
         if m_confirm:
             job_id, platform = m_confirm.group(1), m_confirm.group(2)
-            self._handle_publish(job_id=job_id, platform=platform, action="confirm")
+            try:
+                payload = self._read_json()
+            except AppError:
+                payload = {}
+            self._handle_publish(job_id=job_id, platform=platform, action="confirm", payload=payload)
             return
 
         # POST /api/v1/jobs/{id}/cancel
@@ -388,7 +392,7 @@ class ApiHandler(BaseHTTPRequestHandler):
         except AppError as e:
             self._send_json(http_status_for_app_error(e.code), e.to_dict())
 
-    def _handle_publish(self, *, job_id: str, platform: str, action: str) -> None:
+    def _handle_publish(self, *, job_id: str, platform: str, action: str, payload: dict) -> None:
         try:
             job = self.job_store.get(job_id)
         except AppError as e:
@@ -420,18 +424,29 @@ class ApiHandler(BaseHTTPRequestHandler):
         douyin = publish.get("douyin") or {}
 
         if action == "prepare":
-            prep = prepare_douyin_upload(video_path=Path(str(video_path)), data_root=self.data_root)
-            douyin = {
-                "state": prep.state,
-                "prepared_at": now,
-                "draft_url": prep.details.get("upload_url"),
-                "video_path": video_path,
-                "manual_confirm_required": True,
-                "prepare_details": prep.details,
-            }
-            publish["douyin"] = douyin
-            updated = self.job_store.update(job_id, {"publish": publish})
-            self._send_json(HTTPStatus.OK, updated)
+            try:
+                prep = prepare_douyin_upload(video_path=Path(str(video_path)), data_root=self.data_root)
+                douyin = {
+                    "state": prep.state,
+                    "prepared_at": now,
+                    "draft_url": prep.details.get("upload_url"),
+                    "video_path": video_path,
+                    "manual_confirm_required": True,
+                    "prepare_details": prep.details,
+                }
+                publish["douyin"] = douyin
+                updated = self.job_store.update(job_id, {"publish": publish})
+                self._send_json(HTTPStatus.OK, updated)
+            except AppError as e:
+                douyin = {
+                    "state": "prepare_failed",
+                    "failed_at": now,
+                    "video_path": video_path,
+                    "error": {"code": e.code, "message": e.message, "details": e.details},
+                }
+                publish["douyin"] = douyin
+                updated = self.job_store.update(job_id, {"publish": publish})
+                self._send_json(http_status_for_app_error(e.code), updated)
             return
 
         if action == "confirm":
@@ -442,9 +457,15 @@ class ApiHandler(BaseHTTPRequestHandler):
                     {"error": {"code": "PUBLISH_NOT_PREPARED", "message": "call prepare first"}},
                 )
                 return
+            platform_post_id = str(payload.get("platform_post_id", "")).strip()
+            published_url = str(payload.get("published_url", "")).strip()
             douyin["state"] = "published"
             douyin["published_at"] = now
-            douyin["published_via"] = "ui_stub"
+            douyin["published_via"] = "manual_confirm"
+            if platform_post_id:
+                douyin["platform_post_id"] = platform_post_id
+            if published_url:
+                douyin["published_url"] = published_url
             publish["douyin"] = douyin
             updated = self.job_store.update(job_id, {"publish": publish})
             self._send_json(HTTPStatus.OK, updated)

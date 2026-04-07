@@ -15,12 +15,19 @@ Local-first pipeline MVP: lyrics ingest and confirmation, forced alignment to wo
    python "src/api/server.py" --host 127.0.0.1 --port 8011 --input-root "tests/fixtures/spike" --data-root ".local-data"
    ```
 
-2. Follow **[docs/DEMO.md](docs/DEMO.md)** for example `PUT` / `PATCH` / `POST` calls and expected artifacts.
+2. Open UI:
+
+   ```text
+   http://127.0.0.1:8011/ui
+   ```
+
+3. Follow **[docs/DEMO.md](docs/DEMO.md)** for API samples and end-to-end walkthrough.
 
 **Browse:** `GET /api/v1/config`, `GET /api/v1/library/videos` (scan under `--input-root`), `GET /api/v1/jobs?limit=20`.
 
-UI: open `http://127.0.0.1:8011/ui` to view recent jobs and run Douyin upload prepare/confirm (stub).
+UI: open `http://127.0.0.1:8011/ui` to view recent jobs, create job, filter by status, and run Douyin upload prepare/confirm (manual-confirm flow).
 `DOUYIN_UPLOAD_MODE=auto` (optional) attempts Playwright-based upload prepare with persistent session; otherwise it falls back to manual browser flow.
+`DOUYIN_UPLOAD_STRICT=1` (optional) disables manual fallback on prepare failure and returns structured `prepare_failed` state.
 
 `POST /api/v1/jobs` returns **202** and runs the pipeline in a **background thread**; poll **`GET /api/v1/jobs/{id}`** for `queued` → `running` → `succeeded` or `failed`. Optional **`video_relative_path`** (under `--input-root`) triggers **ffmpeg** **`douyin_vertical`** in `artifacts`. **`words_relative_path`** is path-safe under `input_root`.
 
@@ -38,6 +45,25 @@ If Playwright is missing:
 pip install playwright
 playwright install chromium
 ```
+
+## Current demo capabilities
+
+- Lyrics ingest + confirmed-lyrics update (`PUT/PATCH /api/v1/library/videos/{id}/lyrics*`)
+- Async jobs (`POST /api/v1/jobs` returns `202`, then poll `GET /api/v1/jobs/{id}`)
+- Vertical export path (`video_relative_path`) with 9:16 burn-in artifact (`douyin_vertical`)
+- Job logs and cancel (`GET /api/v1/jobs/{id}/logs`, `POST /api/v1/jobs/{id}/cancel`)
+- Douyin publish prepare/confirm flow with structured failure states/details
+- UI operations: create job, auto-refresh, status filter, error detail expand/copy, workspace config panel
+
+## One-pass demo order
+
+1. Start API server (`src/api/server.py`) and open `/ui`.
+2. In UI, confirm `input_root/data_root` values in the top config panel.
+3. Create a job in the Create form (`video_asset_id`, `words_relative_path`, optional `video_relative_path`).
+4. Watch job transitions with auto-refresh; use filter (`running` / `failed` / `succeeded`) as needed.
+5. On succeeded job, open/download `douyin_vertical` artifact from the row.
+6. Run publish flow: `Prepare upload` then `Confirm publish` (optional `platform_post_id` / `published_url`).
+7. If failure appears, expand details and copy JSON with the row buttons for debugging.
 
 ## Minimal vertical slice (one command)
 
