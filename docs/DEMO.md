@@ -202,12 +202,14 @@ Recommended walkthrough:
 9. For publish flow:
    - click **Prepare upload**
    - then **Confirm publish** (optionally input `platform_post_id` and `published_url`)
+10. Expand `publish timeline` in job row to review recent publish events (`prepare_succeeded` / `prepare_failed` / `confirm_published`).
 
 UI notes:
 - Form/filter/auto-refresh preferences are persisted in browser `localStorage`.
 - Successful export jobs provide `Open video` and `Download` links for `douyin_vertical`.
 - Logs are available from each row via `logs` link.
 - Job rows may include `preflight` subtitle warnings before export (long lines / too short / suspicious lines).
+- If `publish.douyin.state = published`, UI keeps **Confirm publish** disabled and shows a clear "already published" hint.
 
 ## 5. One-command smoke test
 

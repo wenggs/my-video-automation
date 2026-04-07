@@ -249,6 +249,19 @@
         const warnings = Array.isArray(job.preflight_warnings) ? job.preflight_warnings : [];
         const runErrorJson = runError ? escapeHtml(JSON.stringify(runError, null, 2)) : '';
         const prepareErrorJson = err ? escapeHtml(JSON.stringify(err, null, 2)) : '';
+        const history = Array.isArray(douyin.history) ? douyin.history : [];
+        const historyRows = history
+          .slice(-6)
+          .map((h) => {
+            const at = h && h.at ? String(h.at) : '-';
+            const ev = h && h.event ? String(h.event) : '-';
+            const d = h && h.details ? String(JSON.stringify(h.details)) : '';
+            return `<div class="muted"><code>${escapeHtml(ev)}</code> @ ${escapeHtml(at)} ${d ? `- ${escapeHtml(d)}` : ''}</div>`;
+          })
+          .join('');
+        const publishedLockedHint = douyinState === 'published'
+          ? '<div class="muted" style="margin-top:6px;">already published; confirm is disabled</div>'
+          : '';
 
         return `
           <tr>
@@ -264,6 +277,7 @@
               ${preparedUrl ? `<div style="margin-top:6px;"><a href="${preparedUrl}" target="_blank">Open prepared draft</a></div>` : ''}
               ${fallbackErr ? `<div class="muted" style="margin-top:6px;">fallback: <code>${fallbackErr.code || ''}</code> ${fallbackErr.message || ''}</div>` : ''}
               ${err ? `<div class="err" style="margin-top:6px;">prepare failed: ${err.code || ''} ${err.message || ''}</div>` : ''}
+              ${history.length ? `<details style="margin-top:6px;"><summary class="muted">publish timeline (${history.length})</summary>${historyRows}</details>` : ''}
               ${warnings.length ? `<div class="muted" style="margin-top:6px;">preflight: ${escapeHtml(warnings.join(' | '))}</div>` : ''}
               ${runError ? `<details style="margin-top:6px;"><summary class="err">job error details</summary><pre class="err" style="margin:6px 0 0;">${runErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","job", "${toAttrJson(runError)}")'>Copy job error JSON</button></details>` : ''}
               ${err ? `<details style="margin-top:6px;"><summary class="err">prepare error details</summary><pre class="err" style="margin:6px 0 0;">${prepareErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","prepare", "${toAttrJson(err)}")'>Copy prepare error JSON</button></details>` : ''}
@@ -273,6 +287,7 @@
                 <button ${canPrepare ? '' : 'disabled'} onclick="window.__prepare('${job.id}')">Prepare upload</button>
                 <button ${canConfirm ? '' : 'disabled'} onclick="window.__confirm('${job.id}')">Confirm publish</button>
               </div>
+              ${publishedLockedHint}
               <div class="muted" style="margin-top:6px;">
                 <a href="${API_BASE}/jobs/${job.id}/logs?tail=80" target="_blank">logs</a>
               </div>
