@@ -152,6 +152,21 @@ def run() -> None:
         assert status == 200, payload
         assert len(payload.get("confirmed", {}).get("lines", [])) > 0, payload
 
+        # read auto segments with review flags
+        status, payload = http_json("GET", f"/api/v1/library/videos/{VIDEO_ID}/lyrics/auto-segments")
+        assert status == 200, payload
+        assert isinstance(payload.get("items"), list), payload
+        assert "needs_review_count" in payload, payload
+
+        # save reviewed lines via confirmed patch
+        status, payload = http_json(
+            "PATCH",
+            f"/api/v1/library/videos/{VIDEO_ID}/lyrics/confirmed",
+            {"lines": ["第一句已校对", "第二句已校对", "第三句已校对"]},
+        )
+        assert status == 200, payload
+        assert payload.get("confirmed", {}).get("changed") in (True, False), payload
+
         # concurrency guard: second request should get 429 while first is running
         holder: dict = {}
 

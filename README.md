@@ -52,11 +52,12 @@ playwright install chromium
 - Auto lyrics bootstrap from video (`POST /api/v1/library/videos/{id}/lyrics/auto-generate`)
 - Auto subtitles concurrency guard (`429 AUTO_SUBTITLES_BUSY` when in-flight ASR limit reached)
 - Auto subtitles best-effort cancellation by `request_id` (`/lyrics/auto-generate/cancel`)
+- Auto-segments review helper (`GET /api/v1/library/videos/{id}/lyrics/auto-segments`) with `needs_review` hints
 - Async jobs (`POST /api/v1/jobs` returns `202`, then poll `GET /api/v1/jobs/{id}`)
 - Vertical export path (`video_relative_path`) with 9:16 burn-in artifact (`douyin_vertical`)
 - Job logs and cancel (`GET /api/v1/jobs/{id}/logs`, `POST /api/v1/jobs/{id}/cancel`)
 - Douyin publish prepare/confirm flow with structured failure states/details
-- UI operations: auto-generate lyrics (quality/model/language), retry/cancel auto-generate, request_id display, auto metrics display, create job, auto-refresh, status filter, error detail expand/copy, workspace config panel
+- UI operations: auto-generate lyrics (quality/model/language), retry/cancel auto-generate, request_id display, minimal subtitle review/save, auto metrics display, create job, auto-refresh, status filter, error detail expand/copy, workspace config panel
 
 ## One-pass demo order
 

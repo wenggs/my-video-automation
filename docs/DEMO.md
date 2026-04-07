@@ -158,6 +158,7 @@ Notes:
 - Missing `video_relative_path` returns `VIDEO_RELATIVE_PATH_REQUIRED`; path traversal returns `RELATIVE_PATH_INVALID`.
 - Auto subtitles requests are concurrency-limited; when busy, API returns `429 AUTO_SUBTITLES_BUSY`.
 - `request_id` can be provided for cancellation; call `POST /api/v1/library/videos/{id}/lyrics/auto-generate/cancel` with `{ "request_id": "..." }`.
+- Review helper endpoint: `GET /api/v1/library/videos/{id}/lyrics/auto-segments` (includes `needs_review` and `review_reasons`).
 
 ## 3. Minimal vertical slice (CLI, requires ffmpeg)
 
@@ -203,6 +204,7 @@ UI notes:
 - Form/filter/auto-refresh preferences are persisted in browser `localStorage`.
 - Successful export jobs provide `Open video` and `Download` links for `douyin_vertical`.
 - Logs are available from each row via `logs` link.
+- Job rows may include `preflight` subtitle warnings before export (long lines / too short / suspicious lines).
 
 ## 5. One-command smoke test
 

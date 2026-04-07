@@ -10,6 +10,7 @@ _NOT_FOUND_CODES = frozenset(
         "JOB_LOG_NOT_FOUND",
         "JOB_ARTIFACT_NOT_FOUND",
         "AUTO_SUBTITLES_REQUEST_NOT_FOUND",
+        "AUTO_SEGMENTS_NOT_FOUND",
     }
 )
 

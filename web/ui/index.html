@@ -70,6 +70,17 @@
       <div id="autoInfo" class="muted" style="margin-top:6px;"></div>
     </div>
 
+    <div class="card" style="margin-top: 12px;">
+      <div style="font-weight:bold; margin-bottom:8px;">Subtitle review (minimal)</div>
+      <div class="row">
+        <button id="btnLoadAutoSegments">Load auto segments</button>
+        <label class="muted"><input type="checkbox" id="fOnlyNeedsReview" /> only needs review</label>
+        <button id="btnSaveReviewedLines">Save reviewed lines</button>
+      </div>
+      <div id="reviewSummary" class="muted"></div>
+      <textarea id="reviewLines" style="width:100%; min-height:140px; margin-top:8px;" placeholder="one subtitle line per row"></textarea>
+    </div>
+
     <div id="msg" class="muted"></div>
 
     <div class="card" style="margin-top: 12px;">
@@ -219,6 +230,7 @@
         const err = douyin.error || null;
         const fallbackErr = (douyin.prepare_details && douyin.prepare_details.fallback_error) ? douyin.prepare_details.fallback_error : null;
         const runError = job.error || null;
+        const warnings = Array.isArray(job.preflight_warnings) ? job.preflight_warnings : [];
         const runErrorJson = runError ? escapeHtml(JSON.stringify(runError, null, 2)) : '';
         const prepareErrorJson = err ? escapeHtml(JSON.stringify(err, null, 2)) : '';
 
@@ -236,6 +248,7 @@
               ${preparedUrl ? `<div style="margin-top:6px;"><a href="${preparedUrl}" target="_blank">Open prepared draft</a></div>` : ''}
               ${fallbackErr ? `<div class="muted" style="margin-top:6px;">fallback: <code>${fallbackErr.code || ''}</code> ${fallbackErr.message || ''}</div>` : ''}
               ${err ? `<div class="err" style="margin-top:6px;">prepare failed: ${err.code || ''} ${err.message || ''}</div>` : ''}
+              ${warnings.length ? `<div class="muted" style="margin-top:6px;">preflight: ${escapeHtml(warnings.join(' | '))}</div>` : ''}
               ${runError ? `<details style="margin-top:6px;"><summary class="err">job error details</summary><pre class="err" style="margin:6px 0 0;">${runErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","job", "${toAttrJson(runError)}")'>Copy job error JSON</button></details>` : ''}
               ${err ? `<details style="margin-top:6px;"><summary class="err">prepare error details</summary><pre class="err" style="margin:6px 0 0;">${prepareErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","prepare", "${toAttrJson(err)}")'>Copy prepare error JSON</button></details>` : ''}
             </td>
@@ -470,6 +483,58 @@
         }
       }
 
+      async function loadAutoSegments() {
+        const msg = document.getElementById('msg');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        if (!videoAssetId) {
+          msg.textContent = 'Load failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
+        }
+        try {
+          const data = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/lyrics/auto-segments`);
+          const onlyReview = !!document.getElementById('fOnlyNeedsReview').checked;
+          const items = onlyReview ? (data.items || []).filter((x) => !!x.needs_review) : (data.items || []);
+          const lines = items.map((x) => String(x.text || ''));
+          document.getElementById('reviewLines').value = lines.join('\n');
+          document.getElementById('reviewSummary').textContent = `loaded ${items.length}/${data.count || 0}, needs_review=${data.needs_review_count || 0}`;
+          msg.textContent = 'Auto segments loaded.';
+          msg.className = 'ok';
+        } catch (e) {
+          msg.textContent = 'Load failed: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
+      async function saveReviewedLines() {
+        const msg = document.getElementById('msg');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        if (!videoAssetId) {
+          msg.textContent = 'Save failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
+        }
+        const text = String(document.getElementById('reviewLines').value || '');
+        const lines = text.split('\n').map((x) => x.trim()).filter((x) => x.length > 0);
+        if (!lines.length) {
+          msg.textContent = 'Save failed: no lines to save.';
+          msg.className = 'err';
+          return;
+        }
+        try {
+          const _ = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/lyrics/confirmed`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ lines }),
+          });
+          msg.textContent = `Saved reviewed lines: ${lines.length}`;
+          msg.className = 'ok';
+        } catch (e) {
+          msg.textContent = 'Save failed: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
       window.__copyJson = async function(jobId, kind, encoded) {
         const msg = document.getElementById('msg');
         try {
@@ -505,6 +570,9 @@
       document.getElementById('btnAutoLyrics').addEventListener('click', autoGenerateLyrics);
       document.getElementById('btnRetryAutoLyrics').addEventListener('click', retryAutoGenerateLyrics);
       document.getElementById('btnCancelAutoLyrics').addEventListener('click', cancelAutoGenerateLyrics);
+      document.getElementById('btnLoadAutoSegments').addEventListener('click', loadAutoSegments);
+      document.getElementById('fOnlyNeedsReview').addEventListener('change', loadAutoSegments);
+      document.getElementById('btnSaveReviewedLines').addEventListener('click', saveReviewedLines);
       document.getElementById('btnCreateJob').addEventListener('click', createJob);
       applyPrefs();
       setAutoUiState();

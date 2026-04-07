@@ -69,4 +69,6 @@
 - [x] Phase 17.2：ASR 自动字幕取消能力（`request_id` + cancel API）与回归测试
 - [x] Phase 17.3：UI 接入自动字幕取消（显示 request_id + 一键 cancel）
 - [x] Phase 18.1：产出 `v0.6.0` 发布说明草稿（功能/兼容性/测试/运维观察项）
+- [x] Phase 19.1：低置信度分段标注 + auto-segments API + UI 最小逐段校对保存
+- [x] Phase 19.2：`POST /jobs` 导出前字幕一致性告警（preflight_warnings）
 

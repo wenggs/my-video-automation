@@ -43,6 +43,32 @@ class ApiHandler(BaseHTTPRequestHandler):
     _PROJECT_ROOT = Path(__file__).resolve().parents[2]
     _UI_DIR = _PROJECT_ROOT / "web" / "ui"
 
+    def _subtitle_preflight_warnings(self, lines: list[str]) -> list[str]:
+        warnings: list[str] = []
+        if len(lines) < 3:
+            warnings.append("SUBTITLES_TOO_SHORT: confirmed subtitle lines less than 3")
+        long_count = sum(1 for line in lines if len(line.strip()) > 28)
+        if long_count > 0:
+            warnings.append(f"SUBTITLES_LONG_LINE: {long_count} lines exceed 28 chars")
+        odd_count = sum(1 for line in lines if ("?" in line or len(line.strip()) <= 2))
+        if odd_count > 0:
+            warnings.append(f"SUBTITLES_LOW_CONFIDENCE_HINT: {odd_count} lines look suspicious")
+        return warnings
+
+    def _mark_auto_segment_review(self, seg: dict[str, Any]) -> dict[str, Any]:
+        text = str(seg.get("text", "")).strip()
+        reasons: list[str] = []
+        if len(text) <= 2:
+            reasons.append("too_short")
+        if "?" in text:
+            reasons.append("contains_unknown_char")
+        if text.count("...") > 0:
+            reasons.append("ellipsis_noise")
+        out = dict(seg)
+        out["needs_review"] = len(reasons) > 0
+        out["review_reasons"] = reasons
+        return out
+
     def _path_only(self) -> str:
         return self.path.split("?", 1)[0]
 
@@ -162,6 +188,36 @@ class ApiHandler(BaseHTTPRequestHandler):
             try:
                 items = scan_video_files(self.input_root)
                 self._send_json(HTTPStatus.OK, {"items": items, "count": len(items)})
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+        # GET /api/v1/library/videos/{id}/lyrics/auto-segments
+        m_auto_segments = re.match(r"^/api/v1/library/videos/([^/]+)/lyrics/auto-segments$", po)
+        if m_auto_segments:
+            video_id = m_auto_segments.group(1)
+            try:
+                _ = self.store.get_lyrics(video_id)  # ensure state exists
+                seg_path = self.data_root / "library" / "videos" / video_id / "auto_subtitles" / "segments_auto.json"
+                if not seg_path.exists():
+                    raise AppError(
+                        "AUTO_SEGMENTS_NOT_FOUND",
+                        "auto segments not found for video",
+                        {"video_asset_id": video_id},
+                    )
+                raw = json.loads(seg_path.read_text(encoding="utf-8"))
+                if not isinstance(raw, list):
+                    raise AppError("AUTO_SEGMENTS_NOT_FOUND", "auto segments payload is invalid", {"path": str(seg_path)})
+                items = [self._mark_auto_segment_review(dict(x)) for x in raw if isinstance(x, dict)]
+                needs_review = sum(1 for x in items if x.get("needs_review"))
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "video_asset_id": video_id,
+                        "items": items,
+                        "count": len(items),
+                        "needs_review_count": needs_review,
+                    },
+                )
             except AppError as e:
                 self._send_json(http_status_for_app_error(e.code), e.to_dict())
             return
@@ -438,6 +494,7 @@ class ApiHandler(BaseHTTPRequestHandler):
             import_lines = lyrics_state.get("import", {}).get("lines", [])
             confirmed_lines = lyrics_state.get("confirmed", {}).get("lines", import_lines)
             source = lyrics_state.get("source", {})
+            preflight_warnings = self._subtitle_preflight_warnings([str(x) for x in confirmed_lines])
 
             # Best-effort inflight cap to avoid runaway background tasks.
             recent_jobs = self.job_store.list_recent(limit=500)
@@ -461,6 +518,7 @@ class ApiHandler(BaseHTTPRequestHandler):
                 "updated_at": now,
                 "output_root": str(output_root),
                 "error": None,
+                "preflight_warnings": preflight_warnings,
             }
             self.job_store.create(job_record)
 
