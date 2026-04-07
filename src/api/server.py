@@ -18,6 +18,8 @@ from typing import Any, Dict, Tuple
 sys.path.append(str(Path(__file__).resolve().parents[1]))
 
 from common.errors import AppError, http_status_for_app_error
+from common.paths import resolve_safe_under_root
+from services.auto_subtitles_service import auto_generate_subtitles_from_video
 from services.job_execution import run_lyrics_export_job
 from services.library_scan import scan_video_files
 from services.upload_douyin_service import prepare_douyin_upload
@@ -278,6 +280,43 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         po = self._path_only()
+
+        # POST /api/v1/library/videos/{id}/lyrics/auto-generate
+        m_auto = re.match(r"^/api/v1/library/videos/([^/]+)/lyrics/auto-generate$", po)
+        if m_auto:
+            video_id = m_auto.group(1)
+            try:
+                payload = self._read_json()
+                video_rel = str(payload.get("video_relative_path", "")).strip()
+                if not video_rel:
+                    raise AppError("VIDEO_RELATIVE_PATH_REQUIRED", "video_relative_path is required")
+                model_name = str(payload.get("model", "small")).strip() or "small"
+                language = str(payload.get("language", "zh")).strip() or "zh"
+                video_path = resolve_safe_under_root(self.input_root, video_rel)
+                output_dir = self.data_root / "library" / "videos" / video_id / "auto_subtitles"
+                result = auto_generate_subtitles_from_video(
+                    video_path=video_path,
+                    output_dir=output_dir,
+                    model_name=model_name,
+                    language=language,
+                )
+                state = self.store.put_lyrics(
+                    video_id,
+                    {
+                        "mode": "pasted",
+                        "text": "\n".join(result.lines),
+                        "preserve_confirmed": False,
+                    },
+                )
+                state["auto_generate"] = {
+                    "video_relative_path": video_rel,
+                    "srt_path": str(result.srt_path),
+                    "details": result.details,
+                }
+                self._send_json(HTTPStatus.OK, state)
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
 
         # POST /api/v1/jobs/{id}/publish/{platform}/prepare
         m_prepare = re.match(r"^/api/v1/jobs/([^/]+)/publish/([^/]+)/prepare$", po)

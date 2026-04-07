@@ -57,4 +57,9 @@
 - [x] Phase 15.9：UI 顶部展示 `/api/v1/config`（input_root/data_root）并随 refresh 更新
 - [x] Phase 15.10：`docs/DEMO.md` 补 UI 演示走查（create/filter/autorefresh/error-copy/config）
 - [x] Phase 15.11：`README.md` 补“当前可演示能力清单 + 一次性演示顺序”
+- [x] Phase 16.1：新增 ASR 自动字幕最小链路（`POST /library/videos/{id}/lyrics/auto-generate`，faster-whisper/fake）
+- [x] Phase 16.2：新增 `auto_subtitles_service.py` 与 PoC 脚本 `auto_subtitles_faster_whisper_poc.py`
+- [x] Phase 16.3：新增回归 `tests/api_auto_subtitles_test.py` 并更新 README/DEMO
+- [x] Phase 16.4：UI 新增“Auto-generate lyrics”按钮（使用 video_relative_path 调用新 API）
+- [x] Phase 16.5：UI 增加 ASR 参数可选输入（model/language）并纳入本地记忆
 

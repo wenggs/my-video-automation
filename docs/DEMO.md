@@ -123,6 +123,26 @@ Notes:
   - `DOUYIN_UPLOAD_SELECTOR_NOT_FOUND`
   - `DOUYIN_PLAYWRIGHT_NOT_AVAILABLE`
 
+### 2.8 Auto-generate lyrics/subtitles from video (ASR)
+
+When official lyrics are unavailable (for example, live/concert clips), you can bootstrap lyrics from ASR:
+
+```powershell
+$body=@{ video_relative_path='_smoke_sample.mp4'; model='small'; language='zh' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8011/api/v1/library/videos/demo-video-001/lyrics/auto-generate" -ContentType 'application/json' -Body $body
+```
+
+Response includes:
+- regular lyrics state (`import` / `confirmed`)
+- `auto_generate.srt_path` (generated SRT path)
+- `auto_generate.details` (engine/model/language/segments)
+
+Notes:
+- Path safety is enforced: `video_relative_path` must stay under `input_root`.
+- Default engine is `faster-whisper` (`model=small`, `language=zh`).
+- If engine is not installed, API returns `AUTO_SUBTITLES_ENGINE_NOT_AVAILABLE`.
+- For deterministic local regression tests, `AUTO_SUBTITLES_FAKE=1` can be used.
+
 ## 3. Minimal vertical slice (CLI, requires ffmpeg)
 
 From repo root, with a real `--video` path and the same fixture lyrics/words as §2.1–2.3:

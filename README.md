@@ -49,6 +49,7 @@ playwright install chromium
 ## Current demo capabilities
 
 - Lyrics ingest + confirmed-lyrics update (`PUT/PATCH /api/v1/library/videos/{id}/lyrics*`)
+- Auto lyrics bootstrap from video (`POST /api/v1/library/videos/{id}/lyrics/auto-generate`)
 - Async jobs (`POST /api/v1/jobs` returns `202`, then poll `GET /api/v1/jobs/{id}`)
 - Vertical export path (`video_relative_path`) with 9:16 burn-in artifact (`douyin_vertical`)
 - Job logs and cancel (`GET /api/v1/jobs/{id}/logs`, `POST /api/v1/jobs/{id}/cancel`)
@@ -82,6 +83,7 @@ Automated regression (starts its own server on ephemeral ports):
 ```powershell
 python "tests/api_smoke_test.py"
 python "tests/api_failure_test.py"
+python "tests/api_auto_subtitles_test.py"
 python "tests/vertical_slice_test.py"
 ```
 

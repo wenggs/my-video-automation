@@ -51,6 +51,9 @@
         <label class="muted">video_asset_id <input id="fVideoAssetId" style="width:200px;" value="demo-video-001" /></label>
         <label class="muted">words_relative_path <input id="fWordsPath" style="width:220px;" value="transcript_words.json" /></label>
         <label class="muted">video_relative_path <input id="fVideoPath" style="width:220px;" placeholder="optional, e.g. _smoke_sample.mp4" /></label>
+        <label class="muted">asr model <input id="fAsrModel" style="width:110px;" value="small" /></label>
+        <label class="muted">language <input id="fAsrLanguage" style="width:60px;" value="zh" /></label>
+        <button id="btnAutoLyrics">Auto-generate lyrics</button>
         <button id="btnCreateJob">Create</button>
       </div>
       <div class="muted">Only relative paths under server input_root are allowed.</div>
@@ -92,6 +95,8 @@
             videoAssetId: document.getElementById('fVideoAssetId').value || '',
             wordsPath: document.getElementById('fWordsPath').value || '',
             videoPath: document.getElementById('fVideoPath').value || '',
+            asrModel: document.getElementById('fAsrModel').value || 'small',
+            asrLanguage: document.getElementById('fAsrLanguage').value || 'zh',
             status: document.getElementById('fStatus').value || 'all',
             autoPoll: !!document.getElementById('fAutoPoll').checked,
           };
@@ -106,6 +111,8 @@
         if (prefs.videoAssetId) document.getElementById('fVideoAssetId').value = String(prefs.videoAssetId);
         if (prefs.wordsPath) document.getElementById('fWordsPath').value = String(prefs.wordsPath);
         if (prefs.videoPath) document.getElementById('fVideoPath').value = String(prefs.videoPath);
+        if (prefs.asrModel) document.getElementById('fAsrModel').value = String(prefs.asrModel);
+        if (prefs.asrLanguage) document.getElementById('fAsrLanguage').value = String(prefs.asrLanguage);
         if (prefs.status) document.getElementById('fStatus').value = String(prefs.status);
         if (typeof prefs.autoPoll === 'boolean') document.getElementById('fAutoPoll').checked = prefs.autoPoll;
       }
@@ -293,6 +300,41 @@
         }
       }
 
+      async function autoGenerateLyrics() {
+        const msg = document.getElementById('msg');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        const videoRelativePath = String(document.getElementById('fVideoPath').value || '').trim();
+        const model = String(document.getElementById('fAsrModel').value || 'small').trim() || 'small';
+        const language = String(document.getElementById('fAsrLanguage').value || 'zh').trim() || 'zh';
+        if (!videoAssetId) {
+          msg.textContent = 'Auto-generate failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
+        }
+        if (!videoRelativePath) {
+          msg.textContent = 'Auto-generate failed: video_relative_path is required.';
+          msg.className = 'err';
+          return;
+        }
+        msg.textContent = 'Auto-generating lyrics...';
+        msg.className = 'muted';
+        savePrefs();
+        try {
+          const res = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/lyrics/auto-generate`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ video_relative_path: videoRelativePath, model, language }),
+          });
+          const lines = (res.import && res.import.lines && Array.isArray(res.import.lines)) ? res.import.lines.length : 0;
+          msg.textContent = `Auto lyrics completed: ${lines} lines.`;
+          msg.className = 'ok';
+          await refresh();
+        } catch (e) {
+          msg.textContent = 'Auto-generate failed: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
       window.__copyJson = async function(jobId, kind, encoded) {
         const msg = document.getElementById('msg');
         try {
@@ -322,6 +364,9 @@
       document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
       document.getElementById('fWordsPath').addEventListener('input', savePrefs);
       document.getElementById('fVideoPath').addEventListener('input', savePrefs);
+      document.getElementById('fAsrModel').addEventListener('input', savePrefs);
+      document.getElementById('fAsrLanguage').addEventListener('input', savePrefs);
+      document.getElementById('btnAutoLyrics').addEventListener('click', autoGenerateLyrics);
       document.getElementById('btnCreateJob').addEventListener('click', createJob);
       applyPrefs();
       setupAutoRefresh();
