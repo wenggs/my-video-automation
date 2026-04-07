@@ -105,6 +105,34 @@ def run() -> None:
     server = subprocess.Popen(server_cmd, cwd=str(ROOT), env=env)
     try:
         wait_health()
+        # invalid: missing video_relative_path
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/lyrics/auto-generate",
+            {"model": "small", "language": "zh"},
+        )
+        assert status == 400, payload
+        assert payload.get("error", {}).get("code") == "VIDEO_RELATIVE_PATH_REQUIRED", payload
+
+        # invalid: path traversal
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/lyrics/auto-generate",
+            {"video_relative_path": "..\\..\\README.md", "model": "small", "language": "zh"},
+        )
+        assert status == 400, payload
+        assert payload.get("error", {}).get("code") == "RELATIVE_PATH_INVALID", payload
+
+        # invalid: video not found under input_root
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/lyrics/auto-generate",
+            {"video_relative_path": "not_exists_demo.mp4", "model": "small", "language": "zh"},
+        )
+        assert status == 422, payload
+        assert payload.get("error", {}).get("code") == "VIDEO_FILE_NOT_FOUND", payload
+
+        # happy path
         status, payload = http_json(
             "POST",
             f"/api/v1/library/videos/{VIDEO_ID}/lyrics/auto-generate",
@@ -116,6 +144,7 @@ def run() -> None:
         assert payload.get("source", {}).get("mode") == "pasted", payload
         srt_path = payload.get("auto_generate", {}).get("srt_path")
         assert srt_path and Path(str(srt_path)).exists(), payload
+        assert payload.get("auto_generate", {}).get("details", {}).get("elapsed_sec") is not None, payload
 
         status, payload = http_json("GET", f"/api/v1/library/videos/{VIDEO_ID}/lyrics")
         assert status == 200, payload

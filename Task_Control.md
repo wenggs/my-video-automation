@@ -64,4 +64,5 @@
 - [x] Phase 16.5：UI 增加 ASR 参数可选输入（model/language）并纳入本地记忆
 - [x] Phase 16.6：UI 增加质量档位（fast/standard/high）+ 自动字幕重试按钮（复用上次参数）
 - [x] Phase 16.7：auto-generate 回传与展示关键指标（elapsed/segments/model/beam）
+- [x] Phase 16.8：补自动字幕失败回归（缺参/越界/文件不存在）并完善 DEMO/README 说明
 

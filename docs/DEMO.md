@@ -132,16 +132,30 @@ $body=@{ video_relative_path='_smoke_sample.mp4'; model='small'; language='zh' }
 Invoke-RestMethod -Method Post -Uri "http://127.0.0.1:8011/api/v1/library/videos/demo-video-001/lyrics/auto-generate" -ContentType 'application/json' -Body $body
 ```
 
+Quality preset examples:
+
+```powershell
+# fast
+$body=@{ video_relative_path='_smoke_sample.mp4'; model='tiny'; language='zh'; beam_size=1; vad_filter=$true } | ConvertTo-Json
+
+# standard
+$body=@{ video_relative_path='_smoke_sample.mp4'; model='small'; language='zh'; beam_size=5; vad_filter=$true } | ConvertTo-Json
+
+# high
+$body=@{ video_relative_path='_smoke_sample.mp4'; model='medium'; language='zh'; beam_size=8; vad_filter=$true } | ConvertTo-Json
+```
+
 Response includes:
 - regular lyrics state (`import` / `confirmed`)
 - `auto_generate.srt_path` (generated SRT path)
-- `auto_generate.details` (engine/model/language/segments)
+- `auto_generate.details` (engine/model/language/segments/beam_size/vad_filter/elapsed_sec)
 
 Notes:
 - Path safety is enforced: `video_relative_path` must stay under `input_root`.
 - Default engine is `faster-whisper` (`model=small`, `language=zh`).
 - If engine is not installed, API returns `AUTO_SUBTITLES_ENGINE_NOT_AVAILABLE`.
 - For deterministic local regression tests, `AUTO_SUBTITLES_FAKE=1` can be used.
+- Missing `video_relative_path` returns `VIDEO_RELATIVE_PATH_REQUIRED`; path traversal returns `RELATIVE_PATH_INVALID`.
 
 ## 3. Minimal vertical slice (CLI, requires ffmpeg)
 
@@ -170,13 +184,15 @@ http://127.0.0.1:8011/ui
 Recommended walkthrough:
 
 1. Verify the top **Workspace config** card shows `input_root` and `data_root` from `GET /api/v1/config`.
-2. In **Create job**, fill `video_asset_id`, `words_relative_path`, and optional `video_relative_path`, then click **Create**.
-3. Keep **auto refresh (2s)** enabled to watch status transitions (`queued -> running -> succeeded/failed`).
-4. Use **Filter** (`running`, `failed`, `succeeded`, etc.) to focus on target jobs.
-5. For failed jobs, expand **job error details** / **prepare error details**, then click:
+2. In **Create job**, fill `video_asset_id`, `words_relative_path`, and optional `video_relative_path`.
+3. Use **Auto-generate lyrics** (with quality/model/language), and if needed click **Retry auto lyrics**.
+4. Check `auto details` line for model/segments/elapsed/beam.
+5. Click **Create** to run full pipeline and keep **auto refresh (2s)** enabled for status transitions.
+6. Use **Filter** (`running`, `failed`, `succeeded`, etc.) to focus on target jobs.
+7. For failed jobs, expand **job error details** / **prepare error details**, then click:
    - `Copy job error JSON`
    - `Copy prepare error JSON`
-6. For publish flow:
+8. For publish flow:
    - click **Prepare upload**
    - then **Confirm publish** (optionally input `platform_post_id` and `published_url`)
 
