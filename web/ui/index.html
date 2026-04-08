@@ -194,6 +194,41 @@
         if (typeof prefs.autoPoll === 'boolean') document.getElementById('fAutoPoll').checked = prefs.autoPoll;
       }
 
+      function applyUrlFilters() {
+        try {
+          const p = new URLSearchParams(window.location.search || '');
+          const s = p.get('status');
+          const tt = p.get('timelineType');
+          const tk = p.get('timelineKeyword');
+          const tf = p.get('timelineLatestFailChain');
+          if (s) document.getElementById('fStatus').value = s;
+          if (tt) document.getElementById('fTimelineType').value = tt;
+          if (tk != null) document.getElementById('fTimelineKeyword').value = tk;
+          if (tf != null) document.getElementById('fTimelineLatestFailChain').checked = (tf === '1' || tf === 'true');
+        } catch (_) {
+          // non-fatal
+        }
+      }
+
+      function syncUrlFilters() {
+        try {
+          const p = new URLSearchParams();
+          const status = String(document.getElementById('fStatus').value || 'all');
+          const timelineType = String(document.getElementById('fTimelineType').value || 'all');
+          const timelineKeyword = String(document.getElementById('fTimelineKeyword').value || '').trim();
+          const timelineLatestFailChain = !!document.getElementById('fTimelineLatestFailChain').checked;
+          if (status !== 'all') p.set('status', status);
+          if (timelineType !== 'all') p.set('timelineType', timelineType);
+          if (timelineKeyword) p.set('timelineKeyword', timelineKeyword);
+          if (timelineLatestFailChain) p.set('timelineLatestFailChain', '1');
+          const q = p.toString();
+          const next = q ? `${window.location.pathname}?${q}` : window.location.pathname;
+          window.history.replaceState(null, '', next);
+        } catch (_) {
+          // non-fatal
+        }
+      }
+
       function qualityPreset(name) {
         if (name === 'fast') return { model: 'tiny', beam_size: 1, vad_filter: true };
         if (name === 'high') return { model: 'medium', beam_size: 8, vad_filter: true };
@@ -409,6 +444,7 @@
         document.getElementById('fTimelineKeyword').value = '';
         document.getElementById('fTimelineLatestFailChain').checked = false;
         savePrefs();
+        syncUrlFilters();
         refresh();
       }
 
@@ -716,10 +752,10 @@
       };
 
       document.getElementById('btnRefresh').addEventListener('click', refresh);
-      document.getElementById('fStatus').addEventListener('change', () => { savePrefs(); refresh(); });
-      document.getElementById('fTimelineType').addEventListener('change', () => { savePrefs(); refresh(); });
-      document.getElementById('fTimelineKeyword').addEventListener('input', () => { savePrefs(); refresh(); });
-      document.getElementById('fTimelineLatestFailChain').addEventListener('change', () => { savePrefs(); refresh(); });
+      document.getElementById('fStatus').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
+      document.getElementById('fTimelineType').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
+      document.getElementById('fTimelineKeyword').addEventListener('input', () => { savePrefs(); syncUrlFilters(); refresh(); });
+      document.getElementById('fTimelineLatestFailChain').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('btnClearTimelineFilters').addEventListener('click', clearTimelineFilters);
       document.getElementById('fAutoPoll').addEventListener('change', setupAutoRefresh);
       document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
@@ -738,6 +774,8 @@
       document.getElementById('btnSaveRules').addEventListener('click', saveReviewRules);
       document.getElementById('btnCreateJob').addEventListener('click', createJob);
       applyPrefs();
+      applyUrlFilters();
+      syncUrlFilters();
       setAutoUiState();
       setupAutoRefresh();
       refresh();

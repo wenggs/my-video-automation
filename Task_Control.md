@@ -80,4 +80,5 @@
 - [x] Phase 20.5：publish timeline 事件类型筛选（all/failed/confirm）+ 本地记忆
 - [x] Phase 20.6：publish timeline 关键词搜索 + 最近失败链路快捷过滤
 - [x] Phase 20.7：publish timeline 过滤条件可视化 chips + 一键清空
+- [x] Phase 20.8：timeline 筛选状态同步 URL 查询参数（可刷新/可分享）
 

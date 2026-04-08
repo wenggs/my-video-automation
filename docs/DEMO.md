@@ -208,6 +208,7 @@ Recommended walkthrough:
 13. Use top `publish timeline` filter (`all` / `failed only` / `confirm only`) to narrow troubleshooting context.
 14. Use `timeline keyword` to fuzzy match event/details, and `latest failed chain` to focus on the most recent failure sequence.
 15. Check timeline filter chips for active conditions, or click `Clear timeline filters` to reset quickly.
+16. Share current troubleshooting view by copying URL query params (`status`, `timelineType`, `timelineKeyword`, `timelineLatestFailChain`).
 
 UI notes:
 - Form/filter/auto-refresh preferences are persisted in browser `localStorage`.
