@@ -18,6 +18,7 @@
       .card { border: 1px solid #eee; border-radius: 10px; padding: 12px; background: white; }
       .err { color: #b00020; white-space: pre-wrap; }
       .ok { color: #0b6; white-space: pre-wrap; }
+      .timeline-err { color: #b00020; font-size: 12px; font-weight: bold; }
     </style>
   </head>
   <body>
@@ -252,12 +253,16 @@
         const history = Array.isArray(douyin.history) ? douyin.history : [];
         const timelineId = `timeline-${job.id}`;
         const historyRows = history
-          .slice(-6)
+          .slice()
+          .reverse()
+          .slice(0, 6)
           .map((h) => {
             const at = h && h.at ? String(h.at) : '-';
             const ev = h && h.event ? String(h.event) : '-';
             const d = h && h.details ? String(JSON.stringify(h.details)) : '';
-            return `<div class="muted"><code>${escapeHtml(ev)}</code> @ ${escapeHtml(at)} ${d ? `- ${escapeHtml(d)}` : ''}</div>`;
+            const isErr = ev.includes('failed') || (h && h.details && String(JSON.stringify(h.details)).toLowerCase().includes('error'));
+            const cls = isErr ? 'timeline-err' : 'muted';
+            return `<div class="${cls}"><code>${escapeHtml(ev)}</code> @ ${escapeHtml(at)} ${d ? `- ${escapeHtml(d)}` : ''}</div>`;
           })
           .join('');
         const latestEvent = history.length ? history[history.length - 1] : null;
@@ -288,7 +293,7 @@
                   <button onclick="window.__toggleTimeline('${timelineId}')">Expand timeline</button>
                   <button onclick='window.__copyJson("${job.id}","publish history", "${toAttrJson(history)}")'>Copy publish history JSON</button>
                 </div>
-                <details id="${timelineId}" style="margin-top:6px;"><summary class="muted">publish timeline (${history.length})</summary>${historyRows}</details>
+                <details id="${timelineId}" style="margin-top:6px;"><summary class="muted">publish timeline (${history.length}, latest first)</summary>${historyRows}</details>
               ` : ''}
               ${warnings.length ? `<div class="muted" style="margin-top:6px;">preflight: ${escapeHtml(warnings.join(' | '))}</div>` : ''}
               ${runError ? `<details style="margin-top:6px;"><summary class="err">job error details</summary><pre class="err" style="margin:6px 0 0;">${runErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","job", "${toAttrJson(runError)}")'>Copy job error JSON</button></details>` : ''}
