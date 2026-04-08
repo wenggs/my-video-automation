@@ -205,6 +205,7 @@ Recommended walkthrough:
 10. Expand `publish timeline` in job row to review recent publish events (`prepare_succeeded` / `prepare_failed` / `confirm_published`).
 11. Use `Copy publish history JSON` for quick troubleshooting handoff, and `Expand timeline` for recent event details.
 12. Timeline now shows latest events first; failed events are highlighted for quick triage.
+13. Use top `publish timeline` filter (`all` / `failed only` / `confirm only`) to narrow troubleshooting context.
 
 UI notes:
 - Form/filter/auto-refresh preferences are persisted in browser `localStorage`.

@@ -36,6 +36,13 @@
           <option value="cancelled">cancelled</option>
         </select>
       </label>
+      <label class="muted">publish timeline
+        <select id="fTimelineType" style="margin-left:4px;">
+          <option value="all">all</option>
+          <option value="failed">failed only</option>
+          <option value="confirm">confirm only</option>
+        </select>
+      </label>
       <label class="muted"><input type="checkbox" id="fAutoPoll" checked /> auto refresh (2s)</label>
       <span class="muted">UI uses backend stubs for upload (open/confirm transitions only).</span>
     </div>
@@ -151,6 +158,7 @@
             asrLanguage: document.getElementById('fAsrLanguage').value || 'zh',
             lastAutoPayload: window.__lastAutoPayload || null,
             status: document.getElementById('fStatus').value || 'all',
+            timelineType: document.getElementById('fTimelineType').value || 'all',
             autoPoll: !!document.getElementById('fAutoPoll').checked,
           };
           localStorage.setItem(LS_KEY, JSON.stringify(prefs));
@@ -169,6 +177,7 @@
         if (prefs.asrLanguage) document.getElementById('fAsrLanguage').value = String(prefs.asrLanguage);
         if (prefs.lastAutoPayload) window.__lastAutoPayload = prefs.lastAutoPayload;
         if (prefs.status) document.getElementById('fStatus').value = String(prefs.status);
+        if (prefs.timelineType) document.getElementById('fTimelineType').value = String(prefs.timelineType);
         if (typeof prefs.autoPoll === 'boolean') document.getElementById('fAutoPoll').checked = prefs.autoPoll;
       }
 
@@ -251,8 +260,15 @@
         const runErrorJson = runError ? escapeHtml(JSON.stringify(runError, null, 2)) : '';
         const prepareErrorJson = err ? escapeHtml(JSON.stringify(err, null, 2)) : '';
         const history = Array.isArray(douyin.history) ? douyin.history : [];
+        const timelineType = String(document.getElementById('fTimelineType').value || 'all');
+        const filteredHistory = history.filter((h) => {
+          const ev = String((h && h.event) || '');
+          if (timelineType === 'failed') return ev.includes('failed');
+          if (timelineType === 'confirm') return ev.includes('confirm');
+          return true;
+        });
         const timelineId = `timeline-${job.id}`;
-        const historyRows = history
+        const historyRows = filteredHistory
           .slice()
           .reverse()
           .slice(0, 6)
@@ -265,7 +281,7 @@
             return `<div class="${cls}"><code>${escapeHtml(ev)}</code> @ ${escapeHtml(at)} ${d ? `- ${escapeHtml(d)}` : ''}</div>`;
           })
           .join('');
-        const latestEvent = history.length ? history[history.length - 1] : null;
+        const latestEvent = filteredHistory.length ? filteredHistory[filteredHistory.length - 1] : null;
         const latestEventText = latestEvent
           ? `${String(latestEvent.event || '-') } @ ${String(latestEvent.at || '-')}`
           : '';
@@ -287,13 +303,13 @@
               ${preparedUrl ? `<div style="margin-top:6px;"><a href="${preparedUrl}" target="_blank">Open prepared draft</a></div>` : ''}
               ${fallbackErr ? `<div class="muted" style="margin-top:6px;">fallback: <code>${fallbackErr.code || ''}</code> ${fallbackErr.message || ''}</div>` : ''}
               ${err ? `<div class="err" style="margin-top:6px;">prepare failed: ${err.code || ''} ${err.message || ''}</div>` : ''}
-              ${history.length ? `
+              ${filteredHistory.length ? `
                 <div class="muted" style="margin-top:6px;">latest publish event: <code>${escapeHtml(latestEventText)}</code></div>
                 <div class="row" style="margin:6px 0 0;">
                   <button onclick="window.__toggleTimeline('${timelineId}')">Expand timeline</button>
-                  <button onclick='window.__copyJson("${job.id}","publish history", "${toAttrJson(history)}")'>Copy publish history JSON</button>
+                  <button onclick='window.__copyJson("${job.id}","publish history", "${toAttrJson(filteredHistory)}")'>Copy publish history JSON</button>
                 </div>
-                <details id="${timelineId}" style="margin-top:6px;"><summary class="muted">publish timeline (${history.length}, latest first)</summary>${historyRows}</details>
+                <details id="${timelineId}" style="margin-top:6px;"><summary class="muted">publish timeline (${filteredHistory.length}, latest first)</summary>${historyRows}</details>
               ` : ''}
               ${warnings.length ? `<div class="muted" style="margin-top:6px;">preflight: ${escapeHtml(warnings.join(' | '))}</div>` : ''}
               ${runError ? `<details style="margin-top:6px;"><summary class="err">job error details</summary><pre class="err" style="margin:6px 0 0;">${runErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","job", "${toAttrJson(runError)}")'>Copy job error JSON</button></details>` : ''}
@@ -641,6 +657,7 @@
 
       document.getElementById('btnRefresh').addEventListener('click', refresh);
       document.getElementById('fStatus').addEventListener('change', () => { savePrefs(); refresh(); });
+      document.getElementById('fTimelineType').addEventListener('change', () => { savePrefs(); refresh(); });
       document.getElementById('fAutoPoll').addEventListener('change', setupAutoRefresh);
       document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
       document.getElementById('fWordsPath').addEventListener('input', savePrefs);
