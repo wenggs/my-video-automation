@@ -78,4 +78,5 @@
 - [x] Phase 20.3：UI 增加 publish history JSON 一键复制 + 快速展开最近事件
 - [x] Phase 20.4：publish timeline 倒序展示（最新在前）+ 失败事件高亮
 - [x] Phase 20.5：publish timeline 事件类型筛选（all/failed/confirm）+ 本地记忆
+- [x] Phase 20.6：publish timeline 关键词搜索 + 最近失败链路快捷过滤
 

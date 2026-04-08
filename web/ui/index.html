@@ -43,6 +43,10 @@
           <option value="confirm">confirm only</option>
         </select>
       </label>
+      <label class="muted">timeline keyword
+        <input id="fTimelineKeyword" style="margin-left:4px; width:150px;" placeholder="e.g. prepare_failed" />
+      </label>
+      <label class="muted"><input type="checkbox" id="fTimelineLatestFailChain" /> latest failed chain</label>
       <label class="muted"><input type="checkbox" id="fAutoPoll" checked /> auto refresh (2s)</label>
       <span class="muted">UI uses backend stubs for upload (open/confirm transitions only).</span>
     </div>
@@ -159,6 +163,8 @@
             lastAutoPayload: window.__lastAutoPayload || null,
             status: document.getElementById('fStatus').value || 'all',
             timelineType: document.getElementById('fTimelineType').value || 'all',
+            timelineKeyword: document.getElementById('fTimelineKeyword').value || '',
+            timelineLatestFailChain: !!document.getElementById('fTimelineLatestFailChain').checked,
             autoPoll: !!document.getElementById('fAutoPoll').checked,
           };
           localStorage.setItem(LS_KEY, JSON.stringify(prefs));
@@ -178,6 +184,10 @@
         if (prefs.lastAutoPayload) window.__lastAutoPayload = prefs.lastAutoPayload;
         if (prefs.status) document.getElementById('fStatus').value = String(prefs.status);
         if (prefs.timelineType) document.getElementById('fTimelineType').value = String(prefs.timelineType);
+        if (prefs.timelineKeyword) document.getElementById('fTimelineKeyword').value = String(prefs.timelineKeyword);
+        if (typeof prefs.timelineLatestFailChain === 'boolean') {
+          document.getElementById('fTimelineLatestFailChain').checked = prefs.timelineLatestFailChain;
+        }
         if (typeof prefs.autoPoll === 'boolean') document.getElementById('fAutoPoll').checked = prefs.autoPoll;
       }
 
@@ -261,12 +271,38 @@
         const prepareErrorJson = err ? escapeHtml(JSON.stringify(err, null, 2)) : '';
         const history = Array.isArray(douyin.history) ? douyin.history : [];
         const timelineType = String(document.getElementById('fTimelineType').value || 'all');
-        const filteredHistory = history.filter((h) => {
+        const timelineKeyword = String(document.getElementById('fTimelineKeyword').value || '').trim().toLowerCase();
+        const latestFailChainOnly = !!document.getElementById('fTimelineLatestFailChain').checked;
+        let filteredHistory = history.filter((h) => {
           const ev = String((h && h.event) || '');
           if (timelineType === 'failed') return ev.includes('failed');
           if (timelineType === 'confirm') return ev.includes('confirm');
           return true;
         });
+        if (timelineKeyword) {
+          filteredHistory = filteredHistory.filter((h) => {
+            const ev = String((h && h.event) || '').toLowerCase();
+            const at = String((h && h.at) || '').toLowerCase();
+            const d = h && h.details ? String(JSON.stringify(h.details)).toLowerCase() : '';
+            return ev.includes(timelineKeyword) || at.includes(timelineKeyword) || d.includes(timelineKeyword);
+          });
+        }
+        if (latestFailChainOnly) {
+          let cut = -1;
+          for (let i = history.length - 1; i >= 0; i -= 1) {
+            const ev = String((history[i] && history[i].event) || '');
+            if (ev.includes('failed')) {
+              cut = i;
+              break;
+            }
+          }
+          if (cut >= 0) {
+            const chain = history.slice(cut);
+            filteredHistory = filteredHistory.filter((h) => chain.includes(h));
+          } else {
+            filteredHistory = [];
+          }
+        }
         const timelineId = `timeline-${job.id}`;
         const historyRows = filteredHistory
           .slice()
@@ -658,6 +694,8 @@
       document.getElementById('btnRefresh').addEventListener('click', refresh);
       document.getElementById('fStatus').addEventListener('change', () => { savePrefs(); refresh(); });
       document.getElementById('fTimelineType').addEventListener('change', () => { savePrefs(); refresh(); });
+      document.getElementById('fTimelineKeyword').addEventListener('input', () => { savePrefs(); refresh(); });
+      document.getElementById('fTimelineLatestFailChain').addEventListener('change', () => { savePrefs(); refresh(); });
       document.getElementById('fAutoPoll').addEventListener('change', setupAutoRefresh);
       document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
       document.getElementById('fWordsPath').addEventListener('input', savePrefs);
