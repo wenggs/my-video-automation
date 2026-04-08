@@ -79,4 +79,5 @@
 - [x] Phase 20.4：publish timeline 倒序展示（最新在前）+ 失败事件高亮
 - [x] Phase 20.5：publish timeline 事件类型筛选（all/failed/confirm）+ 本地记忆
 - [x] Phase 20.6：publish timeline 关键词搜索 + 最近失败链路快捷过滤
+- [x] Phase 20.7：publish timeline 过滤条件可视化 chips + 一键清空
 

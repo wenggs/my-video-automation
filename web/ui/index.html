@@ -19,6 +19,7 @@
       .err { color: #b00020; white-space: pre-wrap; }
       .ok { color: #0b6; white-space: pre-wrap; }
       .timeline-err { color: #b00020; font-size: 12px; font-weight: bold; }
+      .chip { display: inline-block; border: 1px solid #ddd; border-radius: 999px; padding: 2px 8px; font-size: 12px; background: #fff; margin-right: 6px; }
     </style>
   </head>
   <body>
@@ -47,9 +48,11 @@
         <input id="fTimelineKeyword" style="margin-left:4px; width:150px;" placeholder="e.g. prepare_failed" />
       </label>
       <label class="muted"><input type="checkbox" id="fTimelineLatestFailChain" /> latest failed chain</label>
+      <button id="btnClearTimelineFilters">Clear timeline filters</button>
       <label class="muted"><input type="checkbox" id="fAutoPoll" checked /> auto refresh (2s)</label>
       <span class="muted">UI uses backend stubs for upload (open/confirm transitions only).</span>
     </div>
+    <div id="timelineFilterChips" class="row" style="margin-top:6px;"></div>
 
     <div class="card" style="margin-top: 12px;">
       <div style="font-weight:bold; margin-bottom:8px;">Workspace config</div>
@@ -377,6 +380,7 @@
           document.getElementById('rMinLineChars').value = String(rules.min_line_chars || 2);
           document.getElementById('rFlagQuestion').checked = !!rules.flag_question_mark;
           const statusFilter = String(document.getElementById('fStatus').value || 'all');
+          renderTimelineFilterChips();
           const filtered = statusFilter === 'all' ? jobs : jobs.filter((j) => String(j.status || '') === statusFilter);
           const body = document.getElementById('jobsBody');
           body.innerHTML = filtered.map(renderJob).join('');
@@ -386,6 +390,26 @@
           msg.textContent = 'Error: ' + e.message;
           msg.className = 'err';
         }
+      }
+
+      function renderTimelineFilterChips() {
+        const chips = [];
+        const t = String(document.getElementById('fTimelineType').value || 'all');
+        const k = String(document.getElementById('fTimelineKeyword').value || '').trim();
+        const f = !!document.getElementById('fTimelineLatestFailChain').checked;
+        if (t !== 'all') chips.push(`type:${t}`);
+        if (k) chips.push(`keyword:${k}`);
+        if (f) chips.push('latest-fail-chain');
+        const box = document.getElementById('timelineFilterChips');
+        box.innerHTML = chips.length ? chips.map((x) => `<span class="chip">${escapeHtml(x)}</span>`).join('') : '<span class="muted">timeline filters: none</span>';
+      }
+
+      function clearTimelineFilters() {
+        document.getElementById('fTimelineType').value = 'all';
+        document.getElementById('fTimelineKeyword').value = '';
+        document.getElementById('fTimelineLatestFailChain').checked = false;
+        savePrefs();
+        refresh();
       }
 
       function setupAutoRefresh() {
@@ -696,6 +720,7 @@
       document.getElementById('fTimelineType').addEventListener('change', () => { savePrefs(); refresh(); });
       document.getElementById('fTimelineKeyword').addEventListener('input', () => { savePrefs(); refresh(); });
       document.getElementById('fTimelineLatestFailChain').addEventListener('change', () => { savePrefs(); refresh(); });
+      document.getElementById('btnClearTimelineFilters').addEventListener('click', clearTimelineFilters);
       document.getElementById('fAutoPoll').addEventListener('change', setupAutoRefresh);
       document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
       document.getElementById('fWordsPath').addEventListener('input', savePrefs);
