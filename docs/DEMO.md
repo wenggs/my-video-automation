@@ -203,6 +203,7 @@ Recommended walkthrough:
    - click **Prepare upload**
    - then **Confirm publish** (optionally input `platform_post_id` and `published_url`)
 10. Expand `publish timeline` in job row to review recent publish events (`prepare_succeeded` / `prepare_failed` / `confirm_published`).
+11. Use `Copy publish history JSON` for quick troubleshooting handoff, and `Expand timeline` for recent event details.
 
 UI notes:
 - Form/filter/auto-refresh preferences are persisted in browser `localStorage`.

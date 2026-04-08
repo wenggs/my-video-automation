@@ -250,6 +250,7 @@
         const runErrorJson = runError ? escapeHtml(JSON.stringify(runError, null, 2)) : '';
         const prepareErrorJson = err ? escapeHtml(JSON.stringify(err, null, 2)) : '';
         const history = Array.isArray(douyin.history) ? douyin.history : [];
+        const timelineId = `timeline-${job.id}`;
         const historyRows = history
           .slice(-6)
           .map((h) => {
@@ -259,6 +260,10 @@
             return `<div class="muted"><code>${escapeHtml(ev)}</code> @ ${escapeHtml(at)} ${d ? `- ${escapeHtml(d)}` : ''}</div>`;
           })
           .join('');
+        const latestEvent = history.length ? history[history.length - 1] : null;
+        const latestEventText = latestEvent
+          ? `${String(latestEvent.event || '-') } @ ${String(latestEvent.at || '-')}`
+          : '';
         const publishedLockedHint = douyinState === 'published'
           ? '<div class="muted" style="margin-top:6px;">already published; confirm is disabled</div>'
           : '';
@@ -277,7 +282,14 @@
               ${preparedUrl ? `<div style="margin-top:6px;"><a href="${preparedUrl}" target="_blank">Open prepared draft</a></div>` : ''}
               ${fallbackErr ? `<div class="muted" style="margin-top:6px;">fallback: <code>${fallbackErr.code || ''}</code> ${fallbackErr.message || ''}</div>` : ''}
               ${err ? `<div class="err" style="margin-top:6px;">prepare failed: ${err.code || ''} ${err.message || ''}</div>` : ''}
-              ${history.length ? `<details style="margin-top:6px;"><summary class="muted">publish timeline (${history.length})</summary>${historyRows}</details>` : ''}
+              ${history.length ? `
+                <div class="muted" style="margin-top:6px;">latest publish event: <code>${escapeHtml(latestEventText)}</code></div>
+                <div class="row" style="margin:6px 0 0;">
+                  <button onclick="window.__toggleTimeline('${timelineId}')">Expand timeline</button>
+                  <button onclick='window.__copyJson("${job.id}","publish history", "${toAttrJson(history)}")'>Copy publish history JSON</button>
+                </div>
+                <details id="${timelineId}" style="margin-top:6px;"><summary class="muted">publish timeline (${history.length})</summary>${historyRows}</details>
+              ` : ''}
               ${warnings.length ? `<div class="muted" style="margin-top:6px;">preflight: ${escapeHtml(warnings.join(' | '))}</div>` : ''}
               ${runError ? `<details style="margin-top:6px;"><summary class="err">job error details</summary><pre class="err" style="margin:6px 0 0;">${runErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","job", "${toAttrJson(runError)}")'>Copy job error JSON</button></details>` : ''}
               ${err ? `<details style="margin-top:6px;"><summary class="err">prepare error details</summary><pre class="err" style="margin:6px 0 0;">${prepareErrorJson}</pre><button style="margin-top:6px;" onclick='window.__copyJson("${job.id}","prepare", "${toAttrJson(err)}")'>Copy prepare error JSON</button></details>` : ''}
@@ -614,6 +626,12 @@
           msg.textContent = 'Copy failed: ' + (e && e.message ? e.message : String(e));
           msg.className = 'err';
         }
+      };
+
+      window.__toggleTimeline = function(id) {
+        const el = document.getElementById(String(id || ''));
+        if (!el) return;
+        el.open = !el.open;
       };
 
       document.getElementById('btnRefresh').addEventListener('click', refresh);

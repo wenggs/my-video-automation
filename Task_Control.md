@@ -75,4 +75,5 @@
 - [x] Phase 18.2：发布说明升级为 v0.6.0 Final + 新增演示脚本清单文档
 - [x] Phase 20.1：发布闭环增强（publish history 时间线 + confirm 幂等保护）并补回归测试
 - [x] Phase 20.2：UI 展示 publish history 时间线 + 已发布状态禁用确认提示
+- [x] Phase 20.3：UI 增加 publish history JSON 一键复制 + 快速展开最近事件
 
