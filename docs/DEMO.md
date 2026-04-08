@@ -209,6 +209,7 @@ Recommended walkthrough:
 14. Use `timeline keyword` to fuzzy match event/details, and `latest failed chain` to focus on the most recent failure sequence.
 15. Check timeline filter chips for active conditions, or click `Clear timeline filters` to reset quickly.
 16. Share current troubleshooting view by copying URL query params (`status`, `timelineType`, `timelineKeyword`, `timelineLatestFailChain`).
+17. Click `Copy troubleshoot link` to copy the current filtered view URL directly.
 
 UI notes:
 - Form/filter/auto-refresh preferences are persisted in browser `localStorage`.

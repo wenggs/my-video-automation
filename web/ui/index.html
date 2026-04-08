@@ -49,6 +49,7 @@
       </label>
       <label class="muted"><input type="checkbox" id="fTimelineLatestFailChain" /> latest failed chain</label>
       <button id="btnClearTimelineFilters">Clear timeline filters</button>
+      <button id="btnCopyTroubleshootLink">Copy troubleshoot link</button>
       <label class="muted"><input type="checkbox" id="fAutoPoll" checked /> auto refresh (2s)</label>
       <span class="muted">UI uses backend stubs for upload (open/confirm transitions only).</span>
     </div>
@@ -448,6 +449,24 @@
         refresh();
       }
 
+      async function copyTroubleshootLink() {
+        const msg = document.getElementById('msg');
+        try {
+          syncUrlFilters();
+          const link = window.location.href;
+          if (navigator.clipboard && navigator.clipboard.writeText) {
+            await navigator.clipboard.writeText(link);
+            msg.textContent = 'Copied troubleshoot link.';
+            msg.className = 'ok';
+          } else {
+            throw new Error('clipboard API unavailable');
+          }
+        } catch (e) {
+          msg.textContent = 'Copy link failed: ' + (e && e.message ? e.message : String(e));
+          msg.className = 'err';
+        }
+      }
+
       function setupAutoRefresh() {
         if (autoTimer) {
           clearInterval(autoTimer);
@@ -757,6 +776,7 @@
       document.getElementById('fTimelineKeyword').addEventListener('input', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fTimelineLatestFailChain').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('btnClearTimelineFilters').addEventListener('click', clearTimelineFilters);
+      document.getElementById('btnCopyTroubleshootLink').addEventListener('click', copyTroubleshootLink);
       document.getElementById('fAutoPoll').addEventListener('change', setupAutoRefresh);
       document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
       document.getElementById('fWordsPath').addEventListener('input', savePrefs);

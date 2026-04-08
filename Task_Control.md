@@ -81,4 +81,5 @@
 - [x] Phase 20.6：publish timeline 关键词搜索 + 最近失败链路快捷过滤
 - [x] Phase 20.7：publish timeline 过滤条件可视化 chips + 一键清空
 - [x] Phase 20.8：timeline 筛选状态同步 URL 查询参数（可刷新/可分享）
+- [x] Phase 20.9：UI 增加“复制当前排障链接”按钮
 
