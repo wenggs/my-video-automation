@@ -84,4 +84,5 @@
 - [x] Phase 20.9：UI 增加“复制当前排障链接”按钮
 - [x] Phase 21.0：产出 `v0.6.1` 发布说明（Phase 20.1–20.9 发布闭环与 UI 排障）并更新 README 文档索引
 - [x] Phase 21.1：新增 `docs/DEMO_SCRIPT_v0.6.1.md`（publish timeline / 排障链接演示）并链入 README 与 v0.6.1 release notes
+- [x] Phase 22.1：标签体系 MVP 第一包（`GET/PATCH /library/videos/{id}/tags` + UI tags load/save + smoke 回归）
 

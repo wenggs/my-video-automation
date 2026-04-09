@@ -141,6 +141,18 @@ def run() -> None:
         assert isinstance(payload.get("items"), list)
         assert "count" in payload
 
+        # 0.5) PATCH/GET tags
+        status, payload = http_json(
+            "PATCH",
+            f"/api/v1/library/videos/{VIDEO_ID}/tags",
+            {"tags": ["concert", "live", "concert"]},
+        )
+        assert status == 200, payload
+        assert payload.get("tags_confirmed") == ["concert", "live"], payload
+        status, payload = http_json("GET", f"/api/v1/library/videos/{VIDEO_ID}/tags")
+        assert status == 200, payload
+        assert payload.get("tags_confirmed") == ["concert", "live"], payload
+
         # 1) PUT lyrics import
         status, payload = http_json(
             "PUT",

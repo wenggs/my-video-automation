@@ -27,6 +27,9 @@ class LyricsStore:
     def _state_file(self, video_id: str) -> Path:
         return self._video_dir(video_id) / "lyrics_state.json"
 
+    def _tags_file(self, video_id: str) -> Path:
+        return self._video_dir(video_id) / "tags_state.json"
+
     def _validate_mode_payload(self, payload: Dict[str, Any]) -> None:
         mode = payload.get("mode")
         if mode not in {"pasted", "sidecar_file", "convention"}:
@@ -127,3 +130,40 @@ class LyricsStore:
                 {"video_asset_id": video_id},
             )
         return json.loads(sf.read_text(encoding="utf-8"))
+
+    def get_tags(self, video_id: str) -> Dict[str, Any]:
+        tf = self._tags_file(video_id)
+        if not tf.exists():
+            return {
+                "video_asset_id": video_id,
+                "tags_confirmed": [],
+                "updated_at": None,
+            }
+        payload = json.loads(tf.read_text(encoding="utf-8"))
+        tags = payload.get("tags_confirmed")
+        if not isinstance(tags, list):
+            tags = []
+        return {
+            "video_asset_id": video_id,
+            "tags_confirmed": [str(x).strip() for x in tags if str(x).strip()],
+            "updated_at": payload.get("updated_at"),
+        }
+
+    def patch_tags(self, video_id: str, tags: List[str]) -> Dict[str, Any]:
+        normalized: List[str] = []
+        for x in tags:
+            t = str(x).strip()
+            if not t:
+                continue
+            if t not in normalized:
+                normalized.append(t)
+        state = {
+            "video_asset_id": video_id,
+            "tags_confirmed": normalized,
+            "updated_at": _utc_now(),
+        }
+        self._tags_file(video_id).write_text(
+            json.dumps(state, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return state

@@ -67,6 +67,7 @@
         <label class="muted">video_asset_id <input id="fVideoAssetId" style="width:200px;" value="demo-video-001" /></label>
         <label class="muted">words_relative_path <input id="fWordsPath" style="width:220px;" value="transcript_words.json" /></label>
         <label class="muted">video_relative_path <input id="fVideoPath" style="width:220px;" placeholder="optional, e.g. _smoke_sample.mp4" /></label>
+        <label class="muted">tags(csv) <input id="fTagsCsv" style="width:220px;" placeholder="concert, live, duet" /></label>
         <label class="muted">quality
           <select id="fAsrQuality" style="margin-left:4px;">
             <option value="fast">fast</option>
@@ -79,11 +80,14 @@
         <button id="btnAutoLyrics">Auto-generate lyrics</button>
         <button id="btnRetryAutoLyrics">Retry auto lyrics</button>
         <button id="btnCancelAutoLyrics">Cancel auto lyrics</button>
+        <button id="btnLoadTags">Load tags</button>
+        <button id="btnSaveTags">Save tags</button>
         <button id="btnCreateJob">Create</button>
       </div>
       <div class="muted">Only relative paths under server input_root are allowed.</div>
       <div class="muted">current auto request_id: <code id="autoRequestId">-</code></div>
       <div id="autoInfo" class="muted" style="margin-top:6px;"></div>
+      <div id="tagsInfo" class="muted" style="margin-top:6px;"></div>
     </div>
 
     <div class="card" style="margin-top: 12px;">
@@ -161,6 +165,7 @@
             videoAssetId: document.getElementById('fVideoAssetId').value || '',
             wordsPath: document.getElementById('fWordsPath').value || '',
             videoPath: document.getElementById('fVideoPath').value || '',
+            tagsCsv: document.getElementById('fTagsCsv').value || '',
             asrQuality: document.getElementById('fAsrQuality').value || 'standard',
             asrModel: document.getElementById('fAsrModel').value || 'small',
             asrLanguage: document.getElementById('fAsrLanguage').value || 'zh',
@@ -182,6 +187,7 @@
         if (prefs.videoAssetId) document.getElementById('fVideoAssetId').value = String(prefs.videoAssetId);
         if (prefs.wordsPath) document.getElementById('fWordsPath').value = String(prefs.wordsPath);
         if (prefs.videoPath) document.getElementById('fVideoPath').value = String(prefs.videoPath);
+        if (prefs.tagsCsv) document.getElementById('fTagsCsv').value = String(prefs.tagsCsv);
         if (prefs.asrQuality) document.getElementById('fAsrQuality').value = String(prefs.asrQuality);
         if (prefs.asrModel) document.getElementById('fAsrModel').value = String(prefs.asrModel);
         if (prefs.asrLanguage) document.getElementById('fAsrLanguage').value = String(prefs.asrLanguage);
@@ -545,6 +551,66 @@
         }
       }
 
+      function parseTagsCsv(raw) {
+        const parts = String(raw || '').split(',').map((x) => x.trim()).filter((x) => x.length > 0);
+        const out = [];
+        for (const t of parts) {
+          if (!out.includes(t)) out.push(t);
+        }
+        return out;
+      }
+
+      async function loadTags() {
+        const msg = document.getElementById('msg');
+        const info = document.getElementById('tagsInfo');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        if (!videoAssetId) {
+          msg.textContent = 'Load tags failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
+        }
+        try {
+          const data = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/tags`);
+          const tags = Array.isArray(data.tags_confirmed) ? data.tags_confirmed : [];
+          document.getElementById('fTagsCsv').value = tags.join(', ');
+          info.textContent = `loaded tags: ${tags.length}`;
+          msg.textContent = 'Tags loaded.';
+          msg.className = 'ok';
+          savePrefs();
+        } catch (e) {
+          msg.textContent = 'Load tags failed: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
+      async function saveTags() {
+        const msg = document.getElementById('msg');
+        const info = document.getElementById('tagsInfo');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        if (!videoAssetId) {
+          msg.textContent = 'Save tags failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
+        }
+        const tags = parseTagsCsv(document.getElementById('fTagsCsv').value || '');
+        try {
+          const data = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/tags`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ tags }),
+          });
+          const saved = Array.isArray(data.tags_confirmed) ? data.tags_confirmed : [];
+          document.getElementById('fTagsCsv').value = saved.join(', ');
+          info.textContent = `saved tags: ${saved.length}`;
+          msg.textContent = 'Tags saved.';
+          msg.className = 'ok';
+          savePrefs();
+        } catch (e) {
+          msg.textContent = 'Save tags failed: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
       async function autoGenerateLyrics() {
         const msg = document.getElementById('msg');
         const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
@@ -781,6 +847,7 @@
       document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
       document.getElementById('fWordsPath').addEventListener('input', savePrefs);
       document.getElementById('fVideoPath').addEventListener('input', savePrefs);
+      document.getElementById('fTagsCsv').addEventListener('input', savePrefs);
       document.getElementById('fAsrQuality').addEventListener('change', savePrefs);
       document.getElementById('fAsrModel').addEventListener('input', savePrefs);
       document.getElementById('fAsrLanguage').addEventListener('input', savePrefs);
@@ -792,6 +859,8 @@
       document.getElementById('btnSaveReviewedLines').addEventListener('click', saveReviewedLines);
       document.getElementById('btnLoadRules').addEventListener('click', refresh);
       document.getElementById('btnSaveRules').addEventListener('click', saveReviewRules);
+      document.getElementById('btnLoadTags').addEventListener('click', loadTags);
+      document.getElementById('btnSaveTags').addEventListener('click', saveTags);
       document.getElementById('btnCreateJob').addEventListener('click', createJob);
       applyPrefs();
       applyUrlFilters();

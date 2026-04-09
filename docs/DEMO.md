@@ -16,15 +16,32 @@ python "src/api/server.py" --host 127.0.0.1 --port 8011 --input-root "tests/fixt
 
 - **`GET /api/v1/config`** — returns resolved **`input_root`** and **`data_root`** (server flags).
 - **`GET /api/v1/library/videos`** — recursively lists video files under `input-root` (extensions: `mp4`, `mov`, `mkv`, `webm`, `m4v`, `avi`). Each item: `relative_path`, `size_bytes`.
+- **`GET /api/v1/library/videos?tag=<kw>`** — optional tag keyword filter (matches saved `tags_confirmed`, case-insensitive).
 - **`GET /api/v1/jobs?limit=20`** — recent jobs, newest first by `updated_at` (default `limit=100`, capped at 500).
 
 ```powershell
 Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8011/api/v1/config'
 Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8011/api/v1/library/videos'
+Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8011/api/v1/library/videos?tag=concert'
 Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8011/api/v1/jobs?limit=10'
 ```
 
 `words_relative_path` and `video_relative_path` on **`POST /api/v1/jobs`** must resolve **inside** `input_root` (no `..` traversal).
+
+### 2.0b Video tags (MVP minimal)
+
+Set confirmed tags:
+
+```powershell
+$body=@{ tags=@('concert','live') } | ConvertTo-Json
+Invoke-RestMethod -Method Patch -Uri 'http://127.0.0.1:8011/api/v1/library/videos/demo-video-001/tags' -ContentType 'application/json' -Body $body
+```
+
+Get tags:
+
+```powershell
+Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8011/api/v1/library/videos/demo-video-001/tags'
+```
 
 ### 2.1 Import official lyrics
 

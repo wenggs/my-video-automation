@@ -245,7 +245,27 @@ class ApiHandler(BaseHTTPRequestHandler):
         if po == "/api/v1/library/videos":
             try:
                 items = scan_video_files(self.input_root)
+                tag_filter = ""
+                if "?" in self.path:
+                    qs = parse_qs(self.path.split("?", 1)[1], keep_blank_values=False)
+                    tag_filter = str((qs.get("tag") or [""])[0]).strip().lower()
+                if tag_filter:
+                    filtered: list[dict[str, Any]] = []
+                    for it in items:
+                        rel = str(it.get("relative_path", ""))
+                        tags = self.store.get_tags(rel).get("tags_confirmed", [])
+                        if any(tag_filter in str(t).lower() for t in tags):
+                            filtered.append(it)
+                    items = filtered
                 self._send_json(HTTPStatus.OK, {"items": items, "count": len(items)})
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+        m_tags = re.match(r"^/api/v1/library/videos/([^/]+)/tags$", po)
+        if m_tags:
+            video_id = m_tags.group(1)
+            try:
+                self._send_json(HTTPStatus.OK, self.store.get_tags(video_id))
             except AppError as e:
                 self._send_json(http_status_for_app_error(e.code), e.to_dict())
             return
@@ -718,6 +738,18 @@ class ApiHandler(BaseHTTPRequestHandler):
         self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "unknown publish action"}})
 
     def do_PATCH(self) -> None:  # noqa: N802
+        m_tags = re.match(r"^/api/v1/library/videos/([^/]+)/tags$", self._path_only())
+        if m_tags:
+            video_id = m_tags.group(1)
+            try:
+                payload = self._read_json()
+                tags = payload.get("tags")
+                if not isinstance(tags, list):
+                    raise AppError("INVALID_TAGS", "tags must be string[]")
+                self._send_json(HTTPStatus.OK, self.store.patch_tags(video_id, [str(x) for x in tags]))
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
         matched = self._match_video_route(self._path_only())
         if not matched:
             self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "route not found"}})
