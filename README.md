@@ -59,7 +59,7 @@ playwright install chromium
 - Vertical export path (`video_relative_path`) with 9:16 burn-in artifact (`douyin_vertical`)
 - Job logs and cancel (`GET /api/v1/jobs/{id}/logs`, `POST /api/v1/jobs/{id}/cancel`)
 - Douyin publish prepare/confirm flow with structured failure states/details
-- UI operations: tags load/save, auto-generate lyrics (quality/model/language), retry/cancel auto-generate, request_id display, minimal subtitle review/save, auto metrics display, create job, auto-refresh, status filter, error detail expand/copy, workspace config panel
+- UI operations: tags load/save + job-tag filter, auto-generate lyrics (quality/model/language), retry/cancel auto-generate, request_id display, minimal subtitle review/save, auto metrics display, create job, auto-refresh, status filter, error detail expand/copy, workspace config panel
 
 ## One-pass demo order
 

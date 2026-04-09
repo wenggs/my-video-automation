@@ -227,6 +227,7 @@ Recommended walkthrough:
 15. Check timeline filter chips for active conditions, or click `Clear timeline filters` to reset quickly.
 16. Share current troubleshooting view by copying URL query params (`status`, `timelineType`, `timelineKeyword`, `timelineLatestFailChain`).
 17. Click `Copy troubleshoot link` to copy the current filtered view URL directly.
+18. Use top `job tag` filter to narrow jobs list by saved `tags_confirmed` (substring match, case-insensitive).
 
 UI notes:
 - Form/filter/auto-refresh preferences are persisted in browser `localStorage`.
