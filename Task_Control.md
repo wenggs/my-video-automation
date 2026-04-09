@@ -87,4 +87,5 @@
 - [x] Phase 22.1：标签体系 MVP 第一包（`GET/PATCH /library/videos/{id}/tags` + UI tags load/save + smoke 回归）
 - [x] Phase 22.2：UI 顶部 job-tag 过滤（本地记忆 + URL 参数同步）
 - [x] Phase 22.3：规则标签建议（`POST /library/videos/{id}/tags/suggest`）+ UI Suggest tags
+- [x] Phase 22.4：建议标签候选 chips（点选加入/一键加入）避免自动并入
 

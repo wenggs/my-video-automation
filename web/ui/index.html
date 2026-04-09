@@ -92,6 +92,7 @@
       <div class="muted">current auto request_id: <code id="autoRequestId">-</code></div>
       <div id="autoInfo" class="muted" style="margin-top:6px;"></div>
       <div id="tagsInfo" class="muted" style="margin-top:6px;"></div>
+      <div id="tagSuggestBox" class="muted" style="margin-top:6px;">suggestions: none</div>
     </div>
 
     <div class="card" style="margin-top: 12px;">
@@ -588,6 +589,19 @@
         return out;
       }
 
+      function renderTagSuggestions() {
+        const box = document.getElementById('tagSuggestBox');
+        const arr = Array.isArray(window.__tagSuggestions) ? window.__tagSuggestions : [];
+        if (!arr.length) {
+          box.innerHTML = 'suggestions: none';
+          return;
+        }
+        const chips = arr
+          .map((t) => `<button style="padding:4px 8px; margin-right:6px;" onclick="window.__addSuggestedTag(decodeURIComponent('${encodeURIComponent(String(t))}'))">+ ${escapeHtml(String(t))}</button>`)
+          .join('');
+        box.innerHTML = `suggestions: ${chips}<button style="padding:4px 8px; margin-right:6px;" onclick="window.__addAllSuggestedTags()">Add all</button><button style="padding:4px 8px;" onclick="window.__clearSuggestedTags()">Clear</button>`;
+      }
+
       async function loadTags() {
         const msg = document.getElementById('msg');
         const info = document.getElementById('tagsInfo');
@@ -657,21 +671,41 @@
             body: JSON.stringify({ video_relative_path: videoRelativePath, hint_text: hintText }),
           });
           const suggested = Array.isArray(data.suggested_tags) ? data.suggested_tags : [];
-          const current = parseTagsCsv(document.getElementById('fTagsCsv').value || '');
-          const merged = [...current];
-          for (const t of suggested) {
-            if (!merged.includes(String(t))) merged.push(String(t));
-          }
-          document.getElementById('fTagsCsv').value = merged.join(', ');
-          info.textContent = `suggested tags: ${suggested.length}, merged total: ${merged.length}`;
+          window.__tagSuggestions = suggested.map((x) => String(x));
+          renderTagSuggestions();
+          info.textContent = `suggested tags: ${suggested.length}`;
           msg.textContent = 'Tags suggested.';
           msg.className = 'ok';
-          savePrefs();
         } catch (e) {
           msg.textContent = 'Suggest tags failed: ' + e.message;
           msg.className = 'err';
         }
       }
+
+      window.__addSuggestedTag = function(tag) {
+        const current = parseTagsCsv(document.getElementById('fTagsCsv').value || '');
+        const t = String(tag || '').trim();
+        if (!t) return;
+        if (!current.includes(t)) current.push(t);
+        document.getElementById('fTagsCsv').value = current.join(', ');
+        savePrefs();
+      };
+
+      window.__addAllSuggestedTags = function() {
+        const arr = Array.isArray(window.__tagSuggestions) ? window.__tagSuggestions : [];
+        const current = parseTagsCsv(document.getElementById('fTagsCsv').value || '');
+        for (const x of arr) {
+          const t = String(x || '').trim();
+          if (t && !current.includes(t)) current.push(t);
+        }
+        document.getElementById('fTagsCsv').value = current.join(', ');
+        savePrefs();
+      };
+
+      window.__clearSuggestedTags = function() {
+        window.__tagSuggestions = [];
+        renderTagSuggestions();
+      };
 
       async function autoGenerateLyrics() {
         const msg = document.getElementById('msg');
@@ -929,6 +963,8 @@
       applyPrefs();
       applyUrlFilters();
       syncUrlFilters();
+      window.__tagSuggestions = [];
+      renderTagSuggestions();
       setAutoUiState();
       setupAutoRefresh();
       refresh();
