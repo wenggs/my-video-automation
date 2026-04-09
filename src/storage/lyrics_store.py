@@ -137,15 +137,20 @@ class LyricsStore:
             return {
                 "video_asset_id": video_id,
                 "tags_confirmed": [],
+                "tags_suggested": [],
                 "updated_at": None,
             }
         payload = json.loads(tf.read_text(encoding="utf-8"))
-        tags = payload.get("tags_confirmed")
-        if not isinstance(tags, list):
-            tags = []
+        tags_confirmed = payload.get("tags_confirmed")
+        if not isinstance(tags_confirmed, list):
+            tags_confirmed = []
+        tags_suggested = payload.get("tags_suggested")
+        if not isinstance(tags_suggested, list):
+            tags_suggested = []
         return {
             "video_asset_id": video_id,
-            "tags_confirmed": [str(x).strip() for x in tags if str(x).strip()],
+            "tags_confirmed": [str(x).strip() for x in tags_confirmed if str(x).strip()],
+            "tags_suggested": [str(x).strip() for x in tags_suggested if str(x).strip()],
             "updated_at": payload.get("updated_at"),
         }
 
@@ -157,9 +162,32 @@ class LyricsStore:
                 continue
             if t not in normalized:
                 normalized.append(t)
+        current = self.get_tags(video_id)
         state = {
             "video_asset_id": video_id,
             "tags_confirmed": normalized,
+            "tags_suggested": current.get("tags_suggested", []),
+            "updated_at": _utc_now(),
+        }
+        self._tags_file(video_id).write_text(
+            json.dumps(state, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return state
+
+    def patch_suggested_tags(self, video_id: str, tags: List[str]) -> Dict[str, Any]:
+        normalized: List[str] = []
+        for x in tags:
+            t = str(x).strip()
+            if not t:
+                continue
+            if t not in normalized:
+                normalized.append(t)
+        current = self.get_tags(video_id)
+        state = {
+            "video_asset_id": video_id,
+            "tags_confirmed": current.get("tags_confirmed", []),
+            "tags_suggested": normalized,
             "updated_at": _utc_now(),
         }
         self._tags_file(video_id).write_text(

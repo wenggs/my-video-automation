@@ -270,6 +270,22 @@ class ApiHandler(BaseHTTPRequestHandler):
             except AppError as e:
                 self._send_json(http_status_for_app_error(e.code), e.to_dict())
             return
+        m_tags_suggested = re.match(r"^/api/v1/library/videos/([^/]+)/tags/suggested$", po)
+        if m_tags_suggested:
+            video_id = m_tags_suggested.group(1)
+            try:
+                state = self.store.get_tags(video_id)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "video_asset_id": video_id,
+                        "tags_suggested": state.get("tags_suggested", []),
+                        "updated_at": state.get("updated_at"),
+                    },
+                )
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
         # GET /api/v1/library/videos/{id}/lyrics/auto-segments
         m_auto_segments = re.match(r"^/api/v1/library/videos/([^/]+)/lyrics/auto-segments$", po)
         if m_auto_segments:
@@ -440,11 +456,12 @@ class ApiHandler(BaseHTTPRequestHandler):
                 hint = str(payload.get("hint_text", "")).strip()
                 detail_items = suggest_tags_with_reasons(relative_path=rel, hint_text=hint)
                 suggested = [x.get("tag", "") for x in detail_items if x.get("tag")]
+                state = self.store.patch_suggested_tags(video_id, suggested)
                 self._send_json(
                     HTTPStatus.OK,
                     {
                         "video_asset_id": video_id,
-                        "suggested_tags": suggested,
+                        "suggested_tags": state.get("tags_suggested", []),
                         "suggested_details": detail_items,
                         "source": {"video_relative_path": rel, "hint_text": hint},
                     },
@@ -762,6 +779,26 @@ class ApiHandler(BaseHTTPRequestHandler):
         self._send_json(HTTPStatus.NOT_FOUND, {"error": {"code": "NOT_FOUND", "message": "unknown publish action"}})
 
     def do_PATCH(self) -> None:  # noqa: N802
+        m_tags_suggested = re.match(r"^/api/v1/library/videos/([^/]+)/tags/suggested$", self._path_only())
+        if m_tags_suggested:
+            video_id = m_tags_suggested.group(1)
+            try:
+                payload = self._read_json()
+                tags = payload.get("tags")
+                if not isinstance(tags, list):
+                    raise AppError("INVALID_TAGS", "tags must be string[]")
+                state = self.store.patch_suggested_tags(video_id, [str(x) for x in tags])
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "video_asset_id": video_id,
+                        "tags_suggested": state.get("tags_suggested", []),
+                        "updated_at": state.get("updated_at"),
+                    },
+                )
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
         m_tags = re.match(r"^/api/v1/library/videos/([^/]+)/tags$", self._path_only())
         if m_tags:
             video_id = m_tags.group(1)

@@ -152,6 +152,7 @@ def run() -> None:
         status, payload = http_json("GET", f"/api/v1/library/videos/{VIDEO_ID}/tags")
         assert status == 200, payload
         assert payload.get("tags_confirmed") == ["concert", "live"], payload
+        assert isinstance(payload.get("tags_suggested"), list), payload
         status, payload = http_json(
             "POST",
             f"/api/v1/library/videos/{VIDEO_ID}/tags/suggest",
@@ -162,6 +163,16 @@ def run() -> None:
         assert "concert" in sug and "live" in sug, payload
         details = payload.get("suggested_details") or []
         assert any((x.get("tag") == "concert" and str(x.get("reason", "")).startswith("keyword:")) for x in details), payload
+        status, payload = http_json("GET", f"/api/v1/library/videos/{VIDEO_ID}/tags")
+        assert status == 200, payload
+        assert any(x in (payload.get("tags_suggested") or []) for x in ("concert", "live")), payload
+        status, payload = http_json(
+            "PATCH",
+            f"/api/v1/library/videos/{VIDEO_ID}/tags/suggested",
+            {"tags": ["music"]},
+        )
+        assert status == 200, payload
+        assert payload.get("tags_suggested") == ["music"], payload
 
         # 1) PUT lyrics import
         status, payload = http_json(

@@ -43,6 +43,13 @@ Get tags:
 Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8011/api/v1/library/videos/demo-video-001/tags'
 ```
 
+Set suggested tags channel directly:
+
+```powershell
+$body=@{ tags=@('music','live') } | ConvertTo-Json
+Invoke-RestMethod -Method Patch -Uri 'http://127.0.0.1:8011/api/v1/library/videos/demo-video-001/tags/suggested' -ContentType 'application/json' -Body $body
+```
+
 Suggest tags (rules-based, non-LLM):
 
 ```powershell

@@ -648,9 +648,13 @@
         }
         try {
           const data = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/tags`);
-          const tags = Array.isArray(data.tags_confirmed) ? data.tags_confirmed : [];
-          document.getElementById('fTagsCsv').value = tags.join(', ');
-          info.textContent = `loaded tags: ${tags.length}`;
+          const confirmed = Array.isArray(data.tags_confirmed) ? data.tags_confirmed : [];
+          const suggested = Array.isArray(data.tags_suggested) ? data.tags_suggested : [];
+          document.getElementById('fTagsCsv').value = confirmed.join(', ');
+          window.__tagSuggestions = suggested.map((x) => String(x));
+          window.__tagSuggestionDetails = {};
+          renderTagSuggestions();
+          info.textContent = `loaded confirmed=${confirmed.length}, suggested=${suggested.length}`;
           msg.textContent = 'Tags loaded.';
           msg.className = 'ok';
           savePrefs();
@@ -670,7 +674,13 @@
           return;
         }
         const tags = parseTagsCsv(document.getElementById('fTagsCsv').value || '');
+        const suggested = Array.isArray(window.__tagSuggestions) ? window.__tagSuggestions.map((x) => String(x)) : [];
         try {
+          await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/tags/suggested`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ tags: suggested }),
+          });
           const data = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/tags`, {
             method: 'PATCH',
             headers: { 'Content-Type': 'application/json; charset=utf-8' },
@@ -732,6 +742,8 @@
         if (!t) return;
         if (!current.includes(t)) current.push(t);
         document.getElementById('fTagsCsv').value = current.join(', ');
+        window.__tagSuggestions = (Array.isArray(window.__tagSuggestions) ? window.__tagSuggestions : []).filter((x) => String(x) !== t);
+        renderTagSuggestions();
         savePrefs();
       };
 
@@ -743,6 +755,9 @@
           if (t && !current.includes(t)) current.push(t);
         }
         document.getElementById('fTagsCsv').value = current.join(', ');
+        window.__tagSuggestions = [];
+        window.__tagSuggestionDetails = {};
+        renderTagSuggestions();
         savePrefs();
       };
 
