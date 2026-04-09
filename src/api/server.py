@@ -22,6 +22,7 @@ from common.paths import resolve_safe_under_root
 from services.auto_subtitles_service import auto_generate_subtitles_from_video
 from services.job_execution import run_lyrics_export_job
 from services.library_scan import scan_video_files
+from services.tag_suggest import suggest_tags
 from services.upload_douyin_service import prepare_douyin_upload
 from storage.job_store import JobStore
 from storage.lyrics_store import LyricsStore
@@ -428,6 +429,27 @@ class ApiHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         po = self._path_only()
+
+        # POST /api/v1/library/videos/{id}/tags/suggest
+        m_tag_suggest = re.match(r"^/api/v1/library/videos/([^/]+)/tags/suggest$", po)
+        if m_tag_suggest:
+            video_id = m_tag_suggest.group(1)
+            try:
+                payload = self._read_json()
+                rel = str(payload.get("video_relative_path", "")).strip()
+                hint = str(payload.get("hint_text", "")).strip()
+                suggested = suggest_tags(relative_path=rel, hint_text=hint)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "video_asset_id": video_id,
+                        "suggested_tags": suggested,
+                        "source": {"video_relative_path": rel, "hint_text": hint},
+                    },
+                )
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
 
         # POST /api/v1/library/videos/{id}/lyrics/auto-generate/cancel
         m_auto_cancel = re.match(r"^/api/v1/library/videos/([^/]+)/lyrics/auto-generate/cancel$", po)

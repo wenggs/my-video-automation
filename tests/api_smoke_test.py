@@ -152,6 +152,14 @@ def run() -> None:
         status, payload = http_json("GET", f"/api/v1/library/videos/{VIDEO_ID}/tags")
         assert status == 200, payload
         assert payload.get("tags_confirmed") == ["concert", "live"], payload
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/tags/suggest",
+            {"video_relative_path": "演唱会_live_clip.mp4", "hint_text": "official"},
+        )
+        assert status == 200, payload
+        sug = payload.get("suggested_tags") or []
+        assert "concert" in sug and "live" in sug, payload
 
         # 1) PUT lyrics import
         status, payload = http_json(

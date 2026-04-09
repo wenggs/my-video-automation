@@ -86,4 +86,5 @@
 - [x] Phase 21.1：新增 `docs/DEMO_SCRIPT_v0.6.1.md`（publish timeline / 排障链接演示）并链入 README 与 v0.6.1 release notes
 - [x] Phase 22.1：标签体系 MVP 第一包（`GET/PATCH /library/videos/{id}/tags` + UI tags load/save + smoke 回归）
 - [x] Phase 22.2：UI 顶部 job-tag 过滤（本地记忆 + URL 参数同步）
+- [x] Phase 22.3：规则标签建议（`POST /library/videos/{id}/tags/suggest`）+ UI Suggest tags
 

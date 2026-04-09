@@ -84,6 +84,7 @@
         <button id="btnRetryAutoLyrics">Retry auto lyrics</button>
         <button id="btnCancelAutoLyrics">Cancel auto lyrics</button>
         <button id="btnLoadTags">Load tags</button>
+        <button id="btnSuggestTags">Suggest tags</button>
         <button id="btnSaveTags">Save tags</button>
         <button id="btnCreateJob">Create</button>
       </div>
@@ -638,6 +639,40 @@
         }
       }
 
+      async function suggestVideoTags() {
+        const msg = document.getElementById('msg');
+        const info = document.getElementById('tagsInfo');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        if (!videoAssetId) {
+          msg.textContent = 'Suggest tags failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
+        }
+        const videoRelativePath = String(document.getElementById('fVideoPath').value || '').trim();
+        const hintText = String(document.getElementById('fWordsPath').value || '').trim();
+        try {
+          const data = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/tags/suggest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ video_relative_path: videoRelativePath, hint_text: hintText }),
+          });
+          const suggested = Array.isArray(data.suggested_tags) ? data.suggested_tags : [];
+          const current = parseTagsCsv(document.getElementById('fTagsCsv').value || '');
+          const merged = [...current];
+          for (const t of suggested) {
+            if (!merged.includes(String(t))) merged.push(String(t));
+          }
+          document.getElementById('fTagsCsv').value = merged.join(', ');
+          info.textContent = `suggested tags: ${suggested.length}, merged total: ${merged.length}`;
+          msg.textContent = 'Tags suggested.';
+          msg.className = 'ok';
+          savePrefs();
+        } catch (e) {
+          msg.textContent = 'Suggest tags failed: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
       async function autoGenerateLyrics() {
         const msg = document.getElementById('msg');
         const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
@@ -888,6 +923,7 @@
       document.getElementById('btnLoadRules').addEventListener('click', refresh);
       document.getElementById('btnSaveRules').addEventListener('click', saveReviewRules);
       document.getElementById('btnLoadTags').addEventListener('click', loadTags);
+      document.getElementById('btnSuggestTags').addEventListener('click', suggestVideoTags);
       document.getElementById('btnSaveTags').addEventListener('click', saveTags);
       document.getElementById('btnCreateJob').addEventListener('click', createJob);
       applyPrefs();

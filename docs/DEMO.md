@@ -43,6 +43,13 @@ Get tags:
 Invoke-RestMethod -Method Get -Uri 'http://127.0.0.1:8011/api/v1/library/videos/demo-video-001/tags'
 ```
 
+Suggest tags (rules-based, non-LLM):
+
+```powershell
+$body=@{ video_relative_path='演唱会_live_clip.mp4'; hint_text='official' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8011/api/v1/library/videos/demo-video-001/tags/suggest' -ContentType 'application/json' -Body $body
+```
+
 ### 2.1 Import official lyrics
 
 ```powershell
