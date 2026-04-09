@@ -173,6 +173,27 @@ def run() -> None:
         )
         assert status == 200, payload
         assert payload.get("tags_suggested") == ["music"], payload
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/tags/suggestions/accept",
+            {"tag": "music"},
+        )
+        assert status == 200, payload
+        assert "music" in (payload.get("tags_confirmed") or []), payload
+        assert "music" not in (payload.get("tags_suggested") or []), payload
+        # reject should remove from suggested without touching confirmed
+        _ = http_json(
+            "PATCH",
+            f"/api/v1/library/videos/{VIDEO_ID}/tags/suggested",
+            {"tags": ["dance"]},
+        )
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/tags/suggestions/reject",
+            {"tag": "dance"},
+        )
+        assert status == 200, payload
+        assert "dance" not in (payload.get("tags_suggested") or []), payload
 
         # 1) PUT lyrics import
         status, payload = http_json(

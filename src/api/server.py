@@ -446,6 +446,48 @@ class ApiHandler(BaseHTTPRequestHandler):
     def do_POST(self) -> None:  # noqa: N802
         po = self._path_only()
 
+        # POST /api/v1/library/videos/{id}/tags/suggestions/accept
+        m_tag_accept = re.match(r"^/api/v1/library/videos/([^/]+)/tags/suggestions/accept$", po)
+        if m_tag_accept:
+            video_id = m_tag_accept.group(1)
+            try:
+                payload = self._read_json()
+                tag = str(payload.get("tag", "")).strip()
+                state = self.store.accept_suggested_tag(video_id, tag)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "video_asset_id": video_id,
+                        "tags_confirmed": state.get("tags_confirmed", []),
+                        "tags_suggested": state.get("tags_suggested", []),
+                        "updated_at": state.get("updated_at"),
+                    },
+                )
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+
+        # POST /api/v1/library/videos/{id}/tags/suggestions/reject
+        m_tag_reject = re.match(r"^/api/v1/library/videos/([^/]+)/tags/suggestions/reject$", po)
+        if m_tag_reject:
+            video_id = m_tag_reject.group(1)
+            try:
+                payload = self._read_json()
+                tag = str(payload.get("tag", "")).strip()
+                state = self.store.reject_suggested_tag(video_id, tag)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "video_asset_id": video_id,
+                        "tags_confirmed": state.get("tags_confirmed", []),
+                        "tags_suggested": state.get("tags_suggested", []),
+                        "updated_at": state.get("updated_at"),
+                    },
+                )
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+
         # POST /api/v1/library/videos/{id}/tags/suggest
         m_tag_suggest = re.match(r"^/api/v1/library/videos/([^/]+)/tags/suggest$", po)
         if m_tag_suggest:

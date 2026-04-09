@@ -195,3 +195,44 @@ class LyricsStore:
             encoding="utf-8",
         )
         return state
+
+    def accept_suggested_tag(self, video_id: str, tag: str) -> Dict[str, Any]:
+        t = str(tag).strip()
+        if not t:
+            raise AppError("INVALID_TAG", "tag is required")
+        state = self.get_tags(video_id)
+        confirmed = [str(x) for x in state.get("tags_confirmed", [])]
+        suggested = [str(x) for x in state.get("tags_suggested", [])]
+        if t not in confirmed:
+            confirmed.append(t)
+        suggested = [x for x in suggested if x != t]
+        next_state = {
+            "video_asset_id": video_id,
+            "tags_confirmed": confirmed,
+            "tags_suggested": suggested,
+            "updated_at": _utc_now(),
+        }
+        self._tags_file(video_id).write_text(
+            json.dumps(next_state, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return next_state
+
+    def reject_suggested_tag(self, video_id: str, tag: str) -> Dict[str, Any]:
+        t = str(tag).strip()
+        if not t:
+            raise AppError("INVALID_TAG", "tag is required")
+        state = self.get_tags(video_id)
+        confirmed = [str(x) for x in state.get("tags_confirmed", [])]
+        suggested = [x for x in state.get("tags_suggested", []) if str(x) != t]
+        next_state = {
+            "video_asset_id": video_id,
+            "tags_confirmed": confirmed,
+            "tags_suggested": suggested,
+            "updated_at": _utc_now(),
+        }
+        self._tags_file(video_id).write_text(
+            json.dumps(next_state, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return next_state

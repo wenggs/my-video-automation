@@ -50,7 +50,7 @@ playwright install chromium
 
 - Lyrics ingest + confirmed-lyrics update (`PUT/PATCH /api/v1/library/videos/{id}/lyrics*`)
 - Minimal tags API for videos (`GET/PATCH /api/v1/library/videos/{id}/tags`, `PATCH /api/v1/library/videos/{id}/tags/suggested`) + list filter (`GET /api/v1/library/videos?tag=...`)
-- Rules-based tags suggestion API (`POST /api/v1/library/videos/{id}/tags/suggest`, with reason details)
+- Rules-based tags suggestion API (`POST /api/v1/library/videos/{id}/tags/suggest`, with reason details) + fine-grained accept/reject (`POST /tags/suggestions/accept|reject`)
 - Auto lyrics bootstrap from video (`POST /api/v1/library/videos/{id}/lyrics/auto-generate`)
 - Auto subtitles concurrency guard (`429 AUTO_SUBTITLES_BUSY` when in-flight ASR limit reached)
 - Auto subtitles best-effort cancellation by `request_id` (`/lyrics/auto-generate/cancel`)

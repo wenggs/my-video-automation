@@ -60,6 +60,9 @@ Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8011/api/v1/library/videos
 Response now includes:
 - `suggested_tags`: string[]
 - `suggested_details`: `{ tag, reason }[]` (e.g. `keyword:演唱会`)
+- Suggested chips support fine-grained actions:
+  - `+` accept into confirmed channel
+  - `x` reject from suggested channel
 
 ### 2.1 Import official lyrics
 

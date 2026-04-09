@@ -631,7 +631,8 @@
           .map((t) => {
             const reason = String(det[String(t)] || '');
             const title = reason ? ` title="${escapeHtml(reason)}"` : '';
-            return `<button${title} style="padding:4px 8px; margin-right:6px;" onclick="window.__addSuggestedTag(decodeURIComponent('${encodeURIComponent(String(t))}'))">+ ${escapeHtml(String(t))}</button>`;
+            const safe = `decodeURIComponent('${encodeURIComponent(String(t))}')`;
+            return `<span style="display:inline-flex; align-items:center; margin-right:6px; margin-bottom:4px;"><button${title} style="padding:4px 8px;">${escapeHtml(String(t))}</button><button title="accept" style="padding:4px 6px; margin-left:2px;" onclick="window.__acceptSuggestedTag(${safe})">+</button><button title="reject" style="padding:4px 6px; margin-left:2px;" onclick="window.__rejectSuggestedTag(${safe})">x</button></span>`;
           })
           .join('');
         box.innerHTML = `suggestions: ${chips}<button style="padding:4px 8px; margin-right:6px;" onclick="window.__addAllSuggestedTags()">Add all</button><button style="padding:4px 8px;" onclick="window.__clearSuggestedTags()">Clear</button>`;
@@ -736,15 +737,52 @@
         }
       }
 
-      window.__addSuggestedTag = function(tag) {
-        const current = parseTagsCsv(document.getElementById('fTagsCsv').value || '');
+      window.__acceptSuggestedTag = async function(tag) {
+        const msg = document.getElementById('msg');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
         const t = String(tag || '').trim();
-        if (!t) return;
-        if (!current.includes(t)) current.push(t);
-        document.getElementById('fTagsCsv').value = current.join(', ');
-        window.__tagSuggestions = (Array.isArray(window.__tagSuggestions) ? window.__tagSuggestions : []).filter((x) => String(x) !== t);
-        renderTagSuggestions();
-        savePrefs();
+        if (!videoAssetId || !t) return;
+        try {
+          const data = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/tags/suggestions/accept`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ tag: t }),
+          });
+          const confirmed = Array.isArray(data.tags_confirmed) ? data.tags_confirmed : [];
+          const suggested = Array.isArray(data.tags_suggested) ? data.tags_suggested : [];
+          document.getElementById('fTagsCsv').value = confirmed.join(', ');
+          window.__tagSuggestions = suggested.map((x) => String(x));
+          renderTagSuggestions();
+          msg.textContent = `Accepted suggested tag: ${t}`;
+          msg.className = 'ok';
+          savePrefs();
+        } catch (e) {
+          msg.textContent = 'Accept tag failed: ' + e.message;
+          msg.className = 'err';
+        }
+      };
+
+      window.__rejectSuggestedTag = async function(tag) {
+        const msg = document.getElementById('msg');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        const t = String(tag || '').trim();
+        if (!videoAssetId || !t) return;
+        try {
+          const data = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/tags/suggestions/reject`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ tag: t }),
+          });
+          const suggested = Array.isArray(data.tags_suggested) ? data.tags_suggested : [];
+          window.__tagSuggestions = suggested.map((x) => String(x));
+          renderTagSuggestions();
+          msg.textContent = `Rejected suggested tag: ${t}`;
+          msg.className = 'ok';
+          savePrefs();
+        } catch (e) {
+          msg.textContent = 'Reject tag failed: ' + e.message;
+          msg.className = 'err';
+        }
       };
 
       window.__addAllSuggestedTags = function() {
