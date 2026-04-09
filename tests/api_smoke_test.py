@@ -160,6 +160,8 @@ def run() -> None:
         assert status == 200, payload
         sug = payload.get("suggested_tags") or []
         assert "concert" in sug and "live" in sug, payload
+        details = payload.get("suggested_details") or []
+        assert any((x.get("tag") == "concert" and str(x.get("reason", "")).startswith("keyword:")) for x in details), payload
 
         # 1) PUT lyrics import
         status, payload = http_json(

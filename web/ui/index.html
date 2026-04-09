@@ -592,12 +592,17 @@
       function renderTagSuggestions() {
         const box = document.getElementById('tagSuggestBox');
         const arr = Array.isArray(window.__tagSuggestions) ? window.__tagSuggestions : [];
+        const det = (window.__tagSuggestionDetails && typeof window.__tagSuggestionDetails === 'object') ? window.__tagSuggestionDetails : {};
         if (!arr.length) {
           box.innerHTML = 'suggestions: none';
           return;
         }
         const chips = arr
-          .map((t) => `<button style="padding:4px 8px; margin-right:6px;" onclick="window.__addSuggestedTag(decodeURIComponent('${encodeURIComponent(String(t))}'))">+ ${escapeHtml(String(t))}</button>`)
+          .map((t) => {
+            const reason = String(det[String(t)] || '');
+            const title = reason ? ` title="${escapeHtml(reason)}"` : '';
+            return `<button${title} style="padding:4px 8px; margin-right:6px;" onclick="window.__addSuggestedTag(decodeURIComponent('${encodeURIComponent(String(t))}'))">+ ${escapeHtml(String(t))}</button>`;
+          })
           .join('');
         box.innerHTML = `suggestions: ${chips}<button style="padding:4px 8px; margin-right:6px;" onclick="window.__addAllSuggestedTags()">Add all</button><button style="padding:4px 8px;" onclick="window.__clearSuggestedTags()">Clear</button>`;
       }
@@ -671,7 +676,15 @@
             body: JSON.stringify({ video_relative_path: videoRelativePath, hint_text: hintText }),
           });
           const suggested = Array.isArray(data.suggested_tags) ? data.suggested_tags : [];
+          const detailItems = Array.isArray(data.suggested_details) ? data.suggested_details : [];
+          const detailMap = {};
+          for (const x of detailItems) {
+            const tag = String((x && x.tag) || '').trim();
+            if (!tag) continue;
+            detailMap[tag] = String((x && x.reason) || '');
+          }
           window.__tagSuggestions = suggested.map((x) => String(x));
+          window.__tagSuggestionDetails = detailMap;
           renderTagSuggestions();
           info.textContent = `suggested tags: ${suggested.length}`;
           msg.textContent = 'Tags suggested.';
@@ -704,6 +717,7 @@
 
       window.__clearSuggestedTags = function() {
         window.__tagSuggestions = [];
+        window.__tagSuggestionDetails = {};
         renderTagSuggestions();
       };
 
@@ -964,6 +978,7 @@
       applyUrlFilters();
       syncUrlFilters();
       window.__tagSuggestions = [];
+      window.__tagSuggestionDetails = {};
       renderTagSuggestions();
       setAutoUiState();
       setupAutoRefresh();

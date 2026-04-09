@@ -22,7 +22,7 @@ from common.paths import resolve_safe_under_root
 from services.auto_subtitles_service import auto_generate_subtitles_from_video
 from services.job_execution import run_lyrics_export_job
 from services.library_scan import scan_video_files
-from services.tag_suggest import suggest_tags
+from services.tag_suggest import suggest_tags_with_reasons
 from services.upload_douyin_service import prepare_douyin_upload
 from storage.job_store import JobStore
 from storage.lyrics_store import LyricsStore
@@ -438,12 +438,14 @@ class ApiHandler(BaseHTTPRequestHandler):
                 payload = self._read_json()
                 rel = str(payload.get("video_relative_path", "")).strip()
                 hint = str(payload.get("hint_text", "")).strip()
-                suggested = suggest_tags(relative_path=rel, hint_text=hint)
+                detail_items = suggest_tags_with_reasons(relative_path=rel, hint_text=hint)
+                suggested = [x.get("tag", "") for x in detail_items if x.get("tag")]
                 self._send_json(
                     HTTPStatus.OK,
                     {
                         "video_asset_id": video_id,
                         "suggested_tags": suggested,
+                        "suggested_details": detail_items,
                         "source": {"video_relative_path": rel, "hint_text": hint},
                     },
                 )
