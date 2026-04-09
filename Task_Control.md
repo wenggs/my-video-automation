@@ -82,4 +82,5 @@
 - [x] Phase 20.7：publish timeline 过滤条件可视化 chips + 一键清空
 - [x] Phase 20.8：timeline 筛选状态同步 URL 查询参数（可刷新/可分享）
 - [x] Phase 20.9：UI 增加“复制当前排障链接”按钮
+- [x] Phase 21.0：产出 `v0.6.1` 发布说明（Phase 20.1–20.9 发布闭环与 UI 排障）并更新 README 文档索引
 
