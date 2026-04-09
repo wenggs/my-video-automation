@@ -240,6 +240,7 @@ Recommended walkthrough:
 17. Click `Copy troubleshoot link` to copy the current filtered view URL directly.
 18. Use top `job tag` filter to narrow jobs list by saved `tags_confirmed` (substring match, case-insensitive).
 19. `Suggest tags` now outputs candidate chips first; click single-chip `+ tag` or `Add all` before final `Save tags`.
+20. After `Save tags`, use `recent tags` quick chips to append common labels on the next videos.
 
 UI notes:
 - Form/filter/auto-refresh preferences are persisted in browser `localStorage`.

@@ -93,6 +93,7 @@
       <div id="autoInfo" class="muted" style="margin-top:6px;"></div>
       <div id="tagsInfo" class="muted" style="margin-top:6px;"></div>
       <div id="tagSuggestBox" class="muted" style="margin-top:6px;">suggestions: none</div>
+      <div id="tagRecentBox" class="muted" style="margin-top:6px;">recent tags: none</div>
     </div>
 
     <div class="card" style="margin-top: 12px;">
@@ -171,6 +172,7 @@
             wordsPath: document.getElementById('fWordsPath').value || '',
             videoPath: document.getElementById('fVideoPath').value || '',
             tagsCsv: document.getElementById('fTagsCsv').value || '',
+            recentTags: Array.isArray(window.__recentTags) ? window.__recentTags : [],
             asrQuality: document.getElementById('fAsrQuality').value || 'standard',
             asrModel: document.getElementById('fAsrModel').value || 'small',
             asrLanguage: document.getElementById('fAsrLanguage').value || 'zh',
@@ -194,6 +196,7 @@
         if (prefs.wordsPath) document.getElementById('fWordsPath').value = String(prefs.wordsPath);
         if (prefs.videoPath) document.getElementById('fVideoPath').value = String(prefs.videoPath);
         if (prefs.tagsCsv) document.getElementById('fTagsCsv').value = String(prefs.tagsCsv);
+        if (Array.isArray(prefs.recentTags)) window.__recentTags = prefs.recentTags.map((x) => String(x));
         if (prefs.asrQuality) document.getElementById('fAsrQuality').value = String(prefs.asrQuality);
         if (prefs.asrModel) document.getElementById('fAsrModel').value = String(prefs.asrModel);
         if (prefs.asrLanguage) document.getElementById('fAsrLanguage').value = String(prefs.asrLanguage);
@@ -589,6 +592,33 @@
         return out;
       }
 
+      function updateRecentTags(tags) {
+        const current = Array.isArray(window.__recentTags) ? window.__recentTags : [];
+        const merged = [...current];
+        for (const x of (Array.isArray(tags) ? tags : [])) {
+          const t = String(x || '').trim();
+          if (!t) continue;
+          const idx = merged.indexOf(t);
+          if (idx >= 0) merged.splice(idx, 1);
+          merged.unshift(t);
+        }
+        window.__recentTags = merged.slice(0, 12);
+        renderRecentTags();
+      }
+
+      function renderRecentTags() {
+        const box = document.getElementById('tagRecentBox');
+        const arr = Array.isArray(window.__recentTags) ? window.__recentTags : [];
+        if (!arr.length) {
+          box.innerHTML = 'recent tags: none';
+          return;
+        }
+        const chips = arr
+          .map((t) => `<button style="padding:4px 8px; margin-right:6px;" onclick="window.__addRecentTag(decodeURIComponent('${encodeURIComponent(String(t))}'))">${escapeHtml(String(t))}</button>`)
+          .join('');
+        box.innerHTML = `recent tags: ${chips}<button style="padding:4px 8px;" onclick="window.__clearRecentTags()">Clear</button>`;
+      }
+
       function renderTagSuggestions() {
         const box = document.getElementById('tagSuggestBox');
         const arr = Array.isArray(window.__tagSuggestions) ? window.__tagSuggestions : [];
@@ -651,6 +681,7 @@
           info.textContent = `saved tags: ${saved.length}`;
           msg.textContent = 'Tags saved.';
           msg.className = 'ok';
+          updateRecentTags(saved);
           savePrefs();
         } catch (e) {
           msg.textContent = 'Save tags failed: ' + e.message;
@@ -719,6 +750,21 @@
         window.__tagSuggestions = [];
         window.__tagSuggestionDetails = {};
         renderTagSuggestions();
+      };
+
+      window.__addRecentTag = function(tag) {
+        const t = String(tag || '').trim();
+        if (!t) return;
+        const current = parseTagsCsv(document.getElementById('fTagsCsv').value || '');
+        if (!current.includes(t)) current.push(t);
+        document.getElementById('fTagsCsv').value = current.join(', ');
+        savePrefs();
+      };
+
+      window.__clearRecentTags = function() {
+        window.__recentTags = [];
+        renderRecentTags();
+        savePrefs();
       };
 
       async function autoGenerateLyrics() {
@@ -979,7 +1025,9 @@
       syncUrlFilters();
       window.__tagSuggestions = [];
       window.__tagSuggestionDetails = {};
+      window.__recentTags = Array.isArray(window.__recentTags) ? window.__recentTags : [];
       renderTagSuggestions();
+      renderRecentTags();
       setAutoUiState();
       setupAutoRefresh();
       refresh();

@@ -89,4 +89,5 @@
 - [x] Phase 22.3：规则标签建议（`POST /library/videos/{id}/tags/suggest`）+ UI Suggest tags
 - [x] Phase 22.4：建议标签候选 chips（点选加入/一键加入）避免自动并入
 - [x] Phase 22.5：标签建议来源说明（`suggested_details` + UI 候选 tooltip 原因）
+- [x] Phase 22.6：UI 最近使用标签快捷区（recent tags chips）
 
