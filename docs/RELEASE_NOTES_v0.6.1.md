@@ -53,4 +53,5 @@ Status: Final
 ## Related Documentation
 
 - [docs/DEMO.md](DEMO.md) — UI walkthrough including publish timeline and URL sharing
+- [docs/DEMO_SCRIPT_v0.6.1.md](DEMO_SCRIPT_v0.6.1.md) — step-by-step publish timeline demo
 - [docs/RELEASE_NOTES_v0.6.0.md](RELEASE_NOTES_v0.6.0.md) — prior ASR/subtitle-review release

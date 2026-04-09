@@ -98,4 +98,5 @@ python "tests/vertical_slice_test.py"
 - [docs/DEMO.md](docs/DEMO.md) — runbook, sample requests, HTTP status reference
 - [docs/RELEASE_NOTES_v0.6.0.md](docs/RELEASE_NOTES_v0.6.0.md) — v0.6.0 release notes
 - [docs/RELEASE_NOTES_v0.6.1.md](docs/RELEASE_NOTES_v0.6.1.md) — v0.6.1 publish timeline and UI troubleshooting
-- [docs/DEMO_SCRIPT_v0.6.0.md](docs/DEMO_SCRIPT_v0.6.0.md) — live demo checklist/script
+- [docs/DEMO_SCRIPT_v0.6.0.md](docs/DEMO_SCRIPT_v0.6.0.md) — live demo checklist/script (ASR / subtitles)
+- [docs/DEMO_SCRIPT_v0.6.1.md](docs/DEMO_SCRIPT_v0.6.1.md) — publish timeline and troubleshoot UI
