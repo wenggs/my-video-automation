@@ -98,4 +98,5 @@
 - [x] Phase 23.3：自动剪辑可观测性增强（trim 选择诊断字段落盘 + 回归）
 - [x] Phase 23.4：UI 展示 trim diagnostics 摘要（strategy/words/start/end）
 - [x] Phase 23.5：UI 增加 trim diagnostics JSON 一键复制（trim-only）
+- [x] Phase 23.6：UI 增加 trim strategy 筛选（all/full_range/density_window）+ URL 同步
 

@@ -91,6 +91,7 @@ When full content exceeds `target_max_sec`, clip selection uses a content-densit
 Job output includes selection diagnostics under `artifacts.trim_window.diagnostics` for tuning and troubleshooting.
 UI job row now shows a quick trim summary (`trim: strategy, words=..., start=...s, end=...s`) to avoid opening raw JSON during triage.
 UI job row also provides `Copy trim diagnostics JSON` (trim-only payload) for direct handoff.
+Top filters now include `trim strategy` (`all/full_range/density_window`) and keep this state in URL query params.
 
 Pipeline errors (missing words file, bad video path, export failure, etc.) are reflected in the job record: **`status`** = `failed` and **`error`**: `{ code, message, details }`. **`GET /jobs/{id}`** stays **200** for an existing job so clients can always read the final state.
 

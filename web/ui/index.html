@@ -47,6 +47,13 @@
           <option value="confirm">confirm only</option>
         </select>
       </label>
+      <label class="muted">trim strategy
+        <select id="fTrimStrategy" style="margin-left:4px;">
+          <option value="all">all</option>
+          <option value="full_range">full_range</option>
+          <option value="density_window">density_window</option>
+        </select>
+      </label>
       <label class="muted">timeline keyword
         <input id="fTimelineKeyword" style="margin-left:4px; width:150px;" placeholder="e.g. prepare_failed" />
       </label>
@@ -184,6 +191,7 @@
             status: document.getElementById('fStatus').value || 'all',
             jobTag: document.getElementById('fJobTag').value || '',
             timelineType: document.getElementById('fTimelineType').value || 'all',
+            trimStrategy: document.getElementById('fTrimStrategy').value || 'all',
             timelineKeyword: document.getElementById('fTimelineKeyword').value || '',
             timelineLatestFailChain: !!document.getElementById('fTimelineLatestFailChain').checked,
             autoPoll: !!document.getElementById('fAutoPoll').checked,
@@ -210,6 +218,7 @@
         if (prefs.status) document.getElementById('fStatus').value = String(prefs.status);
         if (prefs.jobTag) document.getElementById('fJobTag').value = String(prefs.jobTag);
         if (prefs.timelineType) document.getElementById('fTimelineType').value = String(prefs.timelineType);
+        if (prefs.trimStrategy) document.getElementById('fTrimStrategy').value = String(prefs.trimStrategy);
         if (prefs.timelineKeyword) document.getElementById('fTimelineKeyword').value = String(prefs.timelineKeyword);
         if (typeof prefs.timelineLatestFailChain === 'boolean') {
           document.getElementById('fTimelineLatestFailChain').checked = prefs.timelineLatestFailChain;
@@ -223,11 +232,13 @@
           const s = p.get('status');
           const jt = p.get('jobTag');
           const tt = p.get('timelineType');
+          const ts = p.get('trimStrategy');
           const tk = p.get('timelineKeyword');
           const tf = p.get('timelineLatestFailChain');
           if (s) document.getElementById('fStatus').value = s;
           if (jt != null) document.getElementById('fJobTag').value = jt;
           if (tt) document.getElementById('fTimelineType').value = tt;
+          if (ts) document.getElementById('fTrimStrategy').value = ts;
           if (tk != null) document.getElementById('fTimelineKeyword').value = tk;
           if (tf != null) document.getElementById('fTimelineLatestFailChain').checked = (tf === '1' || tf === 'true');
         } catch (_) {
@@ -241,11 +252,13 @@
           const status = String(document.getElementById('fStatus').value || 'all');
           const jobTag = String(document.getElementById('fJobTag').value || '').trim();
           const timelineType = String(document.getElementById('fTimelineType').value || 'all');
+          const trimStrategy = String(document.getElementById('fTrimStrategy').value || 'all');
           const timelineKeyword = String(document.getElementById('fTimelineKeyword').value || '').trim();
           const timelineLatestFailChain = !!document.getElementById('fTimelineLatestFailChain').checked;
           if (status !== 'all') p.set('status', status);
           if (jobTag) p.set('jobTag', jobTag);
           if (timelineType !== 'all') p.set('timelineType', timelineType);
+          if (trimStrategy !== 'all') p.set('trimStrategy', trimStrategy);
           if (timelineKeyword) p.set('timelineKeyword', timelineKeyword);
           if (timelineLatestFailChain) p.set('timelineLatestFailChain', '1');
           const q = p.toString();
@@ -459,6 +472,13 @@
           const statusFilter = String(document.getElementById('fStatus').value || 'all');
           renderTimelineFilterChips();
           let filtered = statusFilter === 'all' ? jobs : jobs.filter((j) => String(j.status || '') === statusFilter);
+          const trimStrategyFilter = String(document.getElementById('fTrimStrategy').value || 'all');
+          if (trimStrategyFilter !== 'all') {
+            filtered = filtered.filter((j) => {
+              const strategy = String((((((j || {}).artifacts || {}).trim_window || {}).diagnostics || {}).strategy || ''));
+              return strategy === trimStrategyFilter;
+            });
+          }
           const jobTagFilter = String(document.getElementById('fJobTag').value || '').trim().toLowerCase();
           if (jobTagFilter) {
             const ids = [...new Set(filtered.map((j) => String(j.video_asset_id || '')).filter((x) => x.length > 0))];
@@ -490,9 +510,11 @@
       function renderTimelineFilterChips() {
         const chips = [];
         const t = String(document.getElementById('fTimelineType').value || 'all');
+        const s = String(document.getElementById('fTrimStrategy').value || 'all');
         const k = String(document.getElementById('fTimelineKeyword').value || '').trim();
         const f = !!document.getElementById('fTimelineLatestFailChain').checked;
         if (t !== 'all') chips.push(`type:${t}`);
+        if (s !== 'all') chips.push(`trim:${s}`);
         if (k) chips.push(`keyword:${k}`);
         if (f) chips.push('latest-fail-chain');
         const box = document.getElementById('timelineFilterChips');
@@ -501,6 +523,7 @@
 
       function clearTimelineFilters() {
         document.getElementById('fTimelineType').value = 'all';
+        document.getElementById('fTrimStrategy').value = 'all';
         document.getElementById('fTimelineKeyword').value = '';
         document.getElementById('fTimelineLatestFailChain').checked = false;
         savePrefs();
@@ -1093,6 +1116,7 @@
       document.getElementById('fStatus').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fJobTag').addEventListener('input', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fTimelineType').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
+      document.getElementById('fTrimStrategy').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fTimelineKeyword').addEventListener('input', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fTimelineLatestFailChain').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('btnClearTimelineFilters').addEventListener('click', clearTimelineFilters);

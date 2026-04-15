@@ -56,6 +56,7 @@ playwright install chromium
 - Job artifacts now include trim diagnostics (`artifacts.trim_window.diagnostics`: strategy/selected words/candidate windows)
 - UI job rows now show trim diagnostics summary (`strategy`, selected words, start/end seconds)
 - UI job rows include `Copy trim diagnostics JSON` for quick troubleshooting handoff
+- UI top bar supports trim strategy filter (`all/full_range/density_window`) with URL sync
 - Auto lyrics bootstrap from video (`POST /api/v1/library/videos/{id}/lyrics/auto-generate`)
 - Auto subtitles concurrency guard (`429 AUTO_SUBTITLES_BUSY` when in-flight ASR limit reached)
 - Auto subtitles best-effort cancellation by `request_id` (`/lyrics/auto-generate/cancel`)
