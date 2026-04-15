@@ -87,6 +87,7 @@ Invoke-RestMethod -Method Patch -Uri $uri -ContentType 'application/json' -Body 
 
 Optional **`video_relative_path`**: relative to `--input-root`. When set, after lyrics alignment the worker runs **ffmpeg** 9:16 burn-in and adds **`douyin_vertical`**. Requires **ffmpeg** on the server `PATH`.
 Optional **`target_min_sec` / `target_max_sec`**: trim target window in seconds (default 30/60). Must be positive and `min <= max`.
+When full content exceeds `target_max_sec`, clip selection uses a content-density heuristic (prefers denser lyric regions instead of always taking the first window).
 
 Pipeline errors (missing words file, bad video path, export failure, etc.) are reflected in the job record: **`status`** = `failed` and **`error`**: `{ code, message, details }`. **`GET /jobs/{id}`** stays **200** for an existing job so clients can always read the final state.
 

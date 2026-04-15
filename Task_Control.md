@@ -94,4 +94,5 @@
 - [x] Phase 22.8：建议标签细粒度 accept/reject（API + UI chips 操作）
 - [x] Phase 22.9：建议标签批量 accept-all（专用 API + UI Add all 改造）
 - [x] Phase 23.1：自动剪辑目标时长参数化（`POST /jobs` 支持 `target_min_sec/target_max_sec` + UI + 回归）
+- [x] Phase 23.2：自动剪辑片段选择优化（由“固定前段”升级为“内容密度优先”）+ 选择策略回归
 

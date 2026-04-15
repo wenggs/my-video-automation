@@ -47,8 +47,32 @@ def choose_trim_interval_from_words(
         # Includes cases where total < target_min_sec: we keep full range (don't fail MVP).
         return start, end
 
-    # total > target_max_sec: cut the first window with length = target_max_sec
-    return start, start + float(target_max_sec)
+    # total > target_max_sec: choose a content-dense window instead of always cutting from head.
+    window_sec = float(target_max_sec)
+    n = len(words)
+    best_start = start
+    best_count = -1
+    best_span = -1.0
+    j = 0
+    for i in range(n):
+        win_start = max(start, min(float(words[i].start), end - window_sec))
+        win_end = win_start + window_sec
+        if j < i:
+            j = i
+        while j < n and float(words[j].start) < win_end:
+            j += 1
+        count = j - i
+        span = max(0.0, min(float(words[j - 1].end), win_end) - max(float(words[i].start), win_start)) if count > 0 else 0.0
+        if count > best_count:
+            best_count = count
+            best_span = span
+            best_start = win_start
+            continue
+        if count == best_count and span > best_span:
+            best_span = span
+            best_start = win_start
+
+    return best_start, best_start + window_sec
 
 
 def trim_video_mp4(

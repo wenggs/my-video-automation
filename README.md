@@ -52,6 +52,7 @@ playwright install chromium
 - Minimal tags API for videos (`GET/PATCH /api/v1/library/videos/{id}/tags`, `PATCH /api/v1/library/videos/{id}/tags/suggested`) + list filter (`GET /api/v1/library/videos?tag=...`)
 - Rules-based tags suggestion API (`POST /api/v1/library/videos/{id}/tags/suggest`, with reason details) + fine-grained accept/reject/all (`POST /tags/suggestions/accept|reject|accept-all`)
 - Job edit target window override on create (`POST /api/v1/jobs` supports `target_min_sec` / `target_max_sec`, default 30/60)
+- Trim window selection now prefers content-dense segments (instead of always cutting from the beginning)
 - Auto lyrics bootstrap from video (`POST /api/v1/library/videos/{id}/lyrics/auto-generate`)
 - Auto subtitles concurrency guard (`429 AUTO_SUBTITLES_BUSY` when in-flight ASR limit reached)
 - Auto subtitles best-effort cancellation by `request_id` (`/lyrics/auto-generate/cancel`)
