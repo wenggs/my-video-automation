@@ -93,4 +93,5 @@
 - [x] Phase 22.7：标签双通道存储（`tags_confirmed` + `tags_suggested`）与 API/UI 对齐
 - [x] Phase 22.8：建议标签细粒度 accept/reject（API + UI chips 操作）
 - [x] Phase 22.9：建议标签批量 accept-all（专用 API + UI Add all 改造）
+- [x] Phase 23.1：自动剪辑目标时长参数化（`POST /jobs` 支持 `target_min_sec/target_max_sec` + UI + 回归）
 

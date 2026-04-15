@@ -22,6 +22,8 @@ def run_lyrics_export_job(
     import_lines: List[str],
     confirmed_lines: List[str],
     source: Dict[str, Any],
+    target_min_sec: float = 30.0,
+    target_max_sec: float = 60.0,
 ) -> None:
     """Background worker: lyrics align, optional 9:16 burn-in. Updates job_store."""
     def is_cancelled() -> bool:
@@ -70,11 +72,13 @@ def run_lyrics_export_job(
             "job_log": str(result.log_path),
         }
         if video_file is not None:
-            trimmed_master, burnin_srt, _trim_start = run_trim_and_shift_for_burnin(
+            trimmed_master, burnin_srt, trim_start = run_trim_and_shift_for_burnin(
                 input_video=video_file,
                 words_file=words_file,
                 aligned_subtitles_srt=result.subtitles_path,
                 output_root=output_root,
+                target_min_sec=target_min_sec,
+                target_max_sec=target_max_sec,
             )
             export_path = output_root / "export" / "douyin_vertical.mp4"
             export_douyin_vertical_burn_in(
@@ -85,6 +89,11 @@ def run_lyrics_export_job(
             artifacts["edited_master"] = str(trimmed_master)
             artifacts["subtitles_burnin"] = str(burnin_srt)
             artifacts["douyin_vertical"] = str(export_path)
+            artifacts["trim_window"] = {
+                "start_sec": round(float(trim_start), 3),
+                "target_min_sec": float(target_min_sec),
+                "target_max_sec": float(target_max_sec),
+            }
 
         if is_cancelled():
             job_store.update(job_id, {"status": "cancelled", "current_step": "cancelled", "error": None})

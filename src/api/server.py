@@ -674,6 +674,15 @@ class ApiHandler(BaseHTTPRequestHandler):
             words_relative_path = str(payload.get("words_relative_path", "transcript_words.json")).strip()
             video_rel_raw = payload.get("video_relative_path")
             video_rel = str(video_rel_raw).strip() if video_rel_raw is not None else ""
+            try:
+                target_min_sec = float(payload.get("target_min_sec", 30.0))
+                target_max_sec = float(payload.get("target_max_sec", 60.0))
+            except (TypeError, ValueError):
+                raise AppError("INVALID_EDIT_DURATION", "target_min_sec and target_max_sec must be numbers")
+            if target_min_sec <= 0 or target_max_sec <= 0:
+                raise AppError("INVALID_EDIT_DURATION", "target_min_sec and target_max_sec must be positive")
+            if target_min_sec > target_max_sec:
+                raise AppError("INVALID_EDIT_DURATION", "target_min_sec must be <= target_max_sec")
 
             try:
                 lyrics_state = self.store.get_lyrics(video_id)
@@ -709,6 +718,10 @@ class ApiHandler(BaseHTTPRequestHandler):
                 "output_root": str(output_root),
                 "error": None,
                 "preflight_warnings": preflight_warnings,
+                "edit_target": {
+                    "target_min_sec": target_min_sec,
+                    "target_max_sec": target_max_sec,
+                },
             }
             self.job_store.create(job_record)
 
@@ -727,6 +740,8 @@ class ApiHandler(BaseHTTPRequestHandler):
                     import_lines=import_lines,
                     confirmed_lines=confirmed_lines,
                     source=source,
+                    target_min_sec=target_min_sec,
+                    target_max_sec=target_max_sec,
                 )
 
             threading.Thread(target=worker, daemon=True).start()

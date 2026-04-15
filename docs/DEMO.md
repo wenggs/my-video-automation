@@ -86,12 +86,13 @@ Invoke-RestMethod -Method Patch -Uri $uri -ContentType 'application/json' -Body 
 **`POST /api/v1/jobs`** returns **202 Accepted** with a job whose **`status`** starts as **`queued`**, then moves to **`running`**, then **`succeeded`** or **`failed`**. The HTTP handler does not wait for lyrics alignment or **ffmpeg**. Poll **`GET /api/v1/jobs/{id}`** until `status` is terminal.
 
 Optional **`video_relative_path`**: relative to `--input-root`. When set, after lyrics alignment the worker runs **ffmpeg** 9:16 burn-in and adds **`douyin_vertical`**. Requires **ffmpeg** on the server `PATH`.
+Optional **`target_min_sec` / `target_max_sec`**: trim target window in seconds (default 30/60). Must be positive and `min <= max`.
 
 Pipeline errors (missing words file, bad video path, export failure, etc.) are reflected in the job record: **`status`** = `failed` and **`error`**: `{ code, message, details }`. **`GET /jobs/{id}`** stays **200** for an existing job so clients can always read the final state.
 
 ```powershell
 $jobs='http://127.0.0.1:8011/api/v1/jobs'
-$body=@{ video_asset_id='demo-video-001'; words_relative_path='transcript_words.json'; video_relative_path='your-clip.mp4' } | ConvertTo-Json
+$body=@{ video_asset_id='demo-video-001'; words_relative_path='transcript_words.json'; video_relative_path='your-clip.mp4'; target_min_sec=30; target_max_sec=60 } | ConvertTo-Json
 $r = Invoke-WebRequest -Method Post -Uri $jobs -ContentType 'application/json' -Body $body
 # Expect status code 202; body is JSON with id, status: queued|running|...
 ```

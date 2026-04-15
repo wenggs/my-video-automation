@@ -103,6 +103,21 @@ def run() -> None:
         assert payload.get("error", {}).get("code") == "LYRICS_STATE_NOT_FOUND"
         assert "id" not in payload
 
+        # invalid edit target window -> 400 before enqueue
+        status, payload = http_json(
+            "POST",
+            "/api/v1/jobs",
+            {
+                "video_asset_id": "never-imported-001",
+                "words_relative_path": "transcript_words.json",
+                "target_min_sec": 70,
+                "target_max_sec": 60,
+            },
+        )
+        assert status == 400, payload
+        assert payload.get("error", {}).get("code") == "INVALID_EDIT_DURATION"
+        assert "id" not in payload
+
         # POST job with bad words path -> job created then pipeline fails -> 422
         vid = "failure-video-001"
         status, _ = http_json(

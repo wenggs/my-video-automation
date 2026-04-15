@@ -70,6 +70,8 @@
         <label class="muted">video_asset_id <input id="fVideoAssetId" style="width:200px;" value="demo-video-001" /></label>
         <label class="muted">words_relative_path <input id="fWordsPath" style="width:220px;" value="transcript_words.json" /></label>
         <label class="muted">video_relative_path <input id="fVideoPath" style="width:220px;" placeholder="optional, e.g. _smoke_sample.mp4" /></label>
+        <label class="muted">target_min_sec <input id="fTargetMinSec" style="width:90px;" value="30" /></label>
+        <label class="muted">target_max_sec <input id="fTargetMaxSec" style="width:90px;" value="60" /></label>
         <label class="muted">tags(csv) <input id="fTagsCsv" style="width:220px;" placeholder="concert, live, duet" /></label>
         <label class="muted">quality
           <select id="fAsrQuality" style="margin-left:4px;">
@@ -171,6 +173,8 @@
             videoAssetId: document.getElementById('fVideoAssetId').value || '',
             wordsPath: document.getElementById('fWordsPath').value || '',
             videoPath: document.getElementById('fVideoPath').value || '',
+            targetMinSec: document.getElementById('fTargetMinSec').value || '30',
+            targetMaxSec: document.getElementById('fTargetMaxSec').value || '60',
             tagsCsv: document.getElementById('fTagsCsv').value || '',
             recentTags: Array.isArray(window.__recentTags) ? window.__recentTags : [],
             asrQuality: document.getElementById('fAsrQuality').value || 'standard',
@@ -195,6 +199,8 @@
         if (prefs.videoAssetId) document.getElementById('fVideoAssetId').value = String(prefs.videoAssetId);
         if (prefs.wordsPath) document.getElementById('fWordsPath').value = String(prefs.wordsPath);
         if (prefs.videoPath) document.getElementById('fVideoPath').value = String(prefs.videoPath);
+        if (prefs.targetMinSec) document.getElementById('fTargetMinSec').value = String(prefs.targetMinSec);
+        if (prefs.targetMaxSec) document.getElementById('fTargetMaxSec').value = String(prefs.targetMaxSec);
         if (prefs.tagsCsv) document.getElementById('fTagsCsv').value = String(prefs.tagsCsv);
         if (Array.isArray(prefs.recentTags)) window.__recentTags = prefs.recentTags.map((x) => String(x));
         if (prefs.asrQuality) document.getElementById('fAsrQuality').value = String(prefs.asrQuality);
@@ -558,8 +564,15 @@
         const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
         const wordsRelativePath = String(document.getElementById('fWordsPath').value || '').trim();
         const videoRelativePath = String(document.getElementById('fVideoPath').value || '').trim();
+        const targetMinSec = Number(document.getElementById('fTargetMinSec').value || 30);
+        const targetMaxSec = Number(document.getElementById('fTargetMaxSec').value || 60);
         if (!videoAssetId) {
           msg.textContent = 'Create failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
+        }
+        if (!(targetMinSec > 0) || !(targetMaxSec > 0) || targetMinSec > targetMaxSec) {
+          msg.textContent = 'Create failed: invalid target_min_sec/target_max_sec.';
           msg.className = 'err';
           return;
         }
@@ -567,6 +580,8 @@
         msg.className = 'muted';
         const body = { video_asset_id: videoAssetId, words_relative_path: wordsRelativePath || 'transcript_words.json' };
         if (videoRelativePath) body.video_relative_path = videoRelativePath;
+        body.target_min_sec = targetMinSec;
+        body.target_max_sec = targetMaxSec;
         savePrefs();
         try {
           const res = await fetchJson(API_BASE + '/jobs', {
@@ -1071,6 +1086,8 @@
       document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
       document.getElementById('fWordsPath').addEventListener('input', savePrefs);
       document.getElementById('fVideoPath').addEventListener('input', savePrefs);
+      document.getElementById('fTargetMinSec').addEventListener('input', savePrefs);
+      document.getElementById('fTargetMaxSec').addEventListener('input', savePrefs);
       document.getElementById('fTagsCsv').addEventListener('input', savePrefs);
       document.getElementById('fAsrQuality').addEventListener('change', savePrefs);
       document.getElementById('fAsrModel').addEventListener('input', savePrefs);

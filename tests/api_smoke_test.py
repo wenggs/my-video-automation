@@ -241,12 +241,18 @@ def run() -> None:
         status, payload = http_json(
             "POST",
             "/api/v1/jobs",
-            job_body,
+            {
+                **job_body,
+                "target_min_sec": 30,
+                "target_max_sec": 60,
+            },
         )
         assert status == 202, payload
         job_id = payload.get("id")
         assert job_id
         assert payload.get("status") in ("queued", "running", "succeeded"), payload
+        assert (payload.get("edit_target") or {}).get("target_min_sec") == 30, payload
+        assert (payload.get("edit_target") or {}).get("target_max_sec") == 60, payload
 
         final_st, payload = (
             (payload.get("status"), payload)
@@ -263,6 +269,9 @@ def run() -> None:
             dv = artifacts.get("douyin_vertical")
             assert dv, "expected douyin_vertical artifact when video_relative_path is set"
             assert Path(str(dv)).exists(), dv
+            tw = artifacts.get("trim_window") or {}
+            assert float(tw.get("target_min_sec", 0)) == 30.0, tw
+            assert float(tw.get("target_max_sec", 0)) == 60.0, tw
             status = http_status("GET", f"/api/v1/jobs/{job_id}/artifacts/douyin_vertical")
             assert status == 200
 
