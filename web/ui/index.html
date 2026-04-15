@@ -61,6 +61,7 @@
       <label class="muted">low-signal if words <
         <input id="fTrimWarnBelow" style="margin-left:4px; width:80px;" type="number" min="1" step="1" value="8" />
       </label>
+      <label class="muted"><input type="checkbox" id="fTrimLowSignalOnly" /> only low-signal</label>
       <label class="muted">timeline keyword
         <input id="fTimelineKeyword" style="margin-left:4px; width:150px;" placeholder="e.g. prepare_failed" />
       </label>
@@ -201,6 +202,7 @@
             trimStrategy: document.getElementById('fTrimStrategy').value || 'all',
             trimWordsMin: document.getElementById('fTrimWordsMin').value || '',
             trimWarnBelow: document.getElementById('fTrimWarnBelow').value || '8',
+            trimLowSignalOnly: !!document.getElementById('fTrimLowSignalOnly').checked,
             timelineKeyword: document.getElementById('fTimelineKeyword').value || '',
             timelineLatestFailChain: !!document.getElementById('fTimelineLatestFailChain').checked,
             autoPoll: !!document.getElementById('fAutoPoll').checked,
@@ -230,6 +232,7 @@
         if (prefs.trimStrategy) document.getElementById('fTrimStrategy').value = String(prefs.trimStrategy);
         if (prefs.trimWordsMin != null) document.getElementById('fTrimWordsMin').value = String(prefs.trimWordsMin);
         if (prefs.trimWarnBelow != null) document.getElementById('fTrimWarnBelow').value = String(prefs.trimWarnBelow);
+        if (typeof prefs.trimLowSignalOnly === 'boolean') document.getElementById('fTrimLowSignalOnly').checked = prefs.trimLowSignalOnly;
         if (prefs.timelineKeyword) document.getElementById('fTimelineKeyword').value = String(prefs.timelineKeyword);
         if (typeof prefs.timelineLatestFailChain === 'boolean') {
           document.getElementById('fTimelineLatestFailChain').checked = prefs.timelineLatestFailChain;
@@ -245,6 +248,7 @@
           const tt = p.get('timelineType');
           const ts = p.get('trimStrategy');
           const tw = p.get('trimWordsMin');
+          const tls = p.get('trimLowSignalOnly');
           const tk = p.get('timelineKeyword');
           const tf = p.get('timelineLatestFailChain');
           if (s) document.getElementById('fStatus').value = s;
@@ -252,6 +256,7 @@
           if (tt) document.getElementById('fTimelineType').value = tt;
           if (ts) document.getElementById('fTrimStrategy').value = ts;
           if (tw != null) document.getElementById('fTrimWordsMin').value = tw;
+          if (tls != null) document.getElementById('fTrimLowSignalOnly').checked = (tls === '1' || tls === 'true');
           if (tk != null) document.getElementById('fTimelineKeyword').value = tk;
           if (tf != null) document.getElementById('fTimelineLatestFailChain').checked = (tf === '1' || tf === 'true');
         } catch (_) {
@@ -267,6 +272,7 @@
           const timelineType = String(document.getElementById('fTimelineType').value || 'all');
           const trimStrategy = String(document.getElementById('fTrimStrategy').value || 'all');
           const trimWordsMinRaw = String(document.getElementById('fTrimWordsMin').value || '').trim();
+          const trimLowSignalOnly = !!document.getElementById('fTrimLowSignalOnly').checked;
           const timelineKeyword = String(document.getElementById('fTimelineKeyword').value || '').trim();
           const timelineLatestFailChain = !!document.getElementById('fTimelineLatestFailChain').checked;
           if (status !== 'all') p.set('status', status);
@@ -274,6 +280,7 @@
           if (timelineType !== 'all') p.set('timelineType', timelineType);
           if (trimStrategy !== 'all') p.set('trimStrategy', trimStrategy);
           if (trimWordsMinRaw) p.set('trimWordsMin', trimWordsMinRaw);
+          if (trimLowSignalOnly) p.set('trimLowSignalOnly', '1');
           if (timelineKeyword) p.set('timelineKeyword', timelineKeyword);
           if (timelineLatestFailChain) p.set('timelineLatestFailChain', '1');
           const q = p.toString();
@@ -503,6 +510,14 @@
               return Number.isFinite(count) && count >= trimWordsMin;
             });
           }
+          const lowSignalWarnBelow = Number(document.getElementById('fTrimWarnBelow').value || 8);
+          const lowSignalOnly = !!document.getElementById('fTrimLowSignalOnly').checked;
+          if (lowSignalOnly && Number.isFinite(lowSignalWarnBelow) && lowSignalWarnBelow > 0) {
+            filtered = filtered.filter((j) => {
+              const count = Number((((((j || {}).artifacts || {}).trim_window || {}).diagnostics || {}).selected_word_count || 0);
+              return Number.isFinite(count) && count < lowSignalWarnBelow;
+            });
+          }
           const jobTagFilter = String(document.getElementById('fJobTag').value || '').trim().toLowerCase();
           if (jobTagFilter) {
             const ids = [...new Set(filtered.map((j) => String(j.video_asset_id || '')).filter((x) => x.length > 0))];
@@ -536,11 +551,13 @@
         const t = String(document.getElementById('fTimelineType').value || 'all');
         const s = String(document.getElementById('fTrimStrategy').value || 'all');
         const w = String(document.getElementById('fTrimWordsMin').value || '').trim();
+        const ls = !!document.getElementById('fTrimLowSignalOnly').checked;
         const k = String(document.getElementById('fTimelineKeyword').value || '').trim();
         const f = !!document.getElementById('fTimelineLatestFailChain').checked;
         if (t !== 'all') chips.push(`type:${t}`);
         if (s !== 'all') chips.push(`trim:${s}`);
         if (w) chips.push(`trimWords>=${w}`);
+        if (ls) chips.push('low-signal-only');
         if (k) chips.push(`keyword:${k}`);
         if (f) chips.push('latest-fail-chain');
         const box = document.getElementById('timelineFilterChips');
@@ -551,6 +568,7 @@
         document.getElementById('fTimelineType').value = 'all';
         document.getElementById('fTrimStrategy').value = 'all';
         document.getElementById('fTrimWordsMin').value = '';
+        document.getElementById('fTrimLowSignalOnly').checked = false;
         document.getElementById('fTimelineKeyword').value = '';
         document.getElementById('fTimelineLatestFailChain').checked = false;
         savePrefs();
@@ -1146,6 +1164,7 @@
       document.getElementById('fTrimStrategy').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fTrimWordsMin').addEventListener('input', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fTrimWarnBelow').addEventListener('input', () => { savePrefs(); refresh(); });
+      document.getElementById('fTrimLowSignalOnly').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fTimelineKeyword').addEventListener('input', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fTimelineLatestFailChain').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('btnClearTimelineFilters').addEventListener('click', clearTimelineFilters);
