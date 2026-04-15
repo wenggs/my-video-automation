@@ -58,6 +58,7 @@ playwright install chromium
 - UI job rows include `Copy trim diagnostics JSON` for quick troubleshooting handoff
 - UI top bar supports trim strategy filter (`all/full_range/density_window`) with URL sync
 - UI top bar supports `trim words >= N` filter for low-signal clip triage
+- UI highlights low-signal trim rows when `selected_word_count` is below configurable threshold
 - Auto lyrics bootstrap from video (`POST /api/v1/library/videos/{id}/lyrics/auto-generate`)
 - Auto subtitles concurrency guard (`429 AUTO_SUBTITLES_BUSY` when in-flight ASR limit reached)
 - Auto subtitles best-effort cancellation by `request_id` (`/lyrics/auto-generate/cancel`)
