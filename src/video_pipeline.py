@@ -69,7 +69,7 @@ if __name__ == "__main__":
                 output_root=args.output,
                 preserve_confirmed=args.preserve_confirmed,
             )
-            trimmed_master, burnin_srt, _trim_start = run_trim_and_shift_for_burnin(
+            trimmed_master, burnin_srt, _trim_start, trim_diag = run_trim_and_shift_for_burnin(
                 input_video=args.video,
                 words_file=args.words,
                 aligned_subtitles_srt=lyrics_result.subtitles_path,
@@ -85,6 +85,7 @@ if __name__ == "__main__":
             print(f"confirmed lyrics artifact: {lyrics_result.confirmed_lyrics_path}")
             print(f"aligned subtitles: {lyrics_result.subtitles_path}")
             print(f"trimmed master: {trimmed_master}")
+            print(f"trim selection diagnostics: {trim_diag}")
             print(f"vertical export (9:16 burn-in): {export_path}")
             print(f"job log: {lyrics_result.log_path}")
         except AppError as e:

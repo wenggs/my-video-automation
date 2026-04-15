@@ -4,7 +4,7 @@ import re
 import shutil
 import subprocess
 from pathlib import Path
-from typing import List, Tuple
+from typing import Any, Dict, List, Tuple
 
 from common.errors import AppError
 from pipeline.lyrics_flow import WordTs, load_words
@@ -28,12 +28,12 @@ def _seconds_to_srt_ts(seconds: float) -> str:
     return f"{hh:02d}:{mm:02d}:{ss:02d},{mss:03d}"
 
 
-def choose_trim_interval_from_words(
+def _choose_trim_interval_with_diagnostics(
     *,
     words: List[WordTs],
     target_min_sec: float,
     target_max_sec: float,
-) -> Tuple[float, float]:
+) -> Tuple[float, float, Dict[str, Any]]:
     if not words:
         raise AppError("WORDS_INPUT_MISSING", "words list is empty", {})
 
@@ -45,7 +45,22 @@ def choose_trim_interval_from_words(
     total = end - start
     if total <= target_max_sec:
         # Includes cases where total < target_min_sec: we keep full range (don't fail MVP).
-        return start, end
+        return (
+            start,
+            end,
+            {
+                "strategy": "full_range",
+                "candidate_windows": 1,
+                "selected_word_count": len(words),
+                "selected_word_span_sec": round(total, 3),
+                "selected_start_sec": round(start, 3),
+                "selected_end_sec": round(end, 3),
+                "total_words": len(words),
+                "total_duration_sec": round(total, 3),
+                "target_min_sec": float(target_min_sec),
+                "target_max_sec": float(target_max_sec),
+            },
+        )
 
     # total > target_max_sec: choose a content-dense window instead of always cutting from head.
     window_sec = float(target_max_sec)
@@ -53,10 +68,12 @@ def choose_trim_interval_from_words(
     best_start = start
     best_count = -1
     best_span = -1.0
+    candidate_windows = 0
     j = 0
     for i in range(n):
         win_start = max(start, min(float(words[i].start), end - window_sec))
         win_end = win_start + window_sec
+        candidate_windows += 1
         if j < i:
             j = i
         while j < n and float(words[j].start) < win_end:
@@ -72,7 +89,37 @@ def choose_trim_interval_from_words(
             best_span = span
             best_start = win_start
 
-    return best_start, best_start + window_sec
+    selected_end = best_start + window_sec
+    return (
+        best_start,
+        selected_end,
+        {
+            "strategy": "density_window",
+            "candidate_windows": candidate_windows,
+            "selected_word_count": max(0, int(best_count)),
+            "selected_word_span_sec": round(max(0.0, float(best_span)), 3),
+            "selected_start_sec": round(float(best_start), 3),
+            "selected_end_sec": round(float(selected_end), 3),
+            "total_words": len(words),
+            "total_duration_sec": round(total, 3),
+            "target_min_sec": float(target_min_sec),
+            "target_max_sec": float(target_max_sec),
+        },
+    )
+
+
+def choose_trim_interval_from_words(
+    *,
+    words: List[WordTs],
+    target_min_sec: float,
+    target_max_sec: float,
+) -> Tuple[float, float]:
+    trim_start, trim_end, _diag = _choose_trim_interval_with_diagnostics(
+        words=words,
+        target_min_sec=target_min_sec,
+        target_max_sec=target_max_sec,
+    )
+    return trim_start, trim_end
 
 
 def trim_video_mp4(
@@ -196,9 +243,9 @@ def run_trim_and_shift_for_burnin(
     output_root: Path,
     target_min_sec: float = 30.0,
     target_max_sec: float = 60.0,
-) -> Tuple[Path, Path, float]:
+) -> Tuple[Path, Path, float, Dict[str, Any]]:
     words = load_words(words_file)
-    trim_start, trim_end = choose_trim_interval_from_words(
+    trim_start, trim_end, trim_diag = _choose_trim_interval_with_diagnostics(
         words=words,
         target_min_sec=target_min_sec,
         target_max_sec=target_max_sec,
@@ -219,5 +266,5 @@ def run_trim_and_shift_for_burnin(
         offset_sec=trim_start,
         output_srt=shifted_srt_path,
     )
-    return trimmed, shifted, trim_start
+    return trimmed, shifted, trim_start, trim_diag
 

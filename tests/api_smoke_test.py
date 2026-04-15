@@ -272,6 +272,10 @@ def run() -> None:
             tw = artifacts.get("trim_window") or {}
             assert float(tw.get("target_min_sec", 0)) == 30.0, tw
             assert float(tw.get("target_max_sec", 0)) == 60.0, tw
+            diag = tw.get("diagnostics") or {}
+            assert isinstance(diag, dict), tw
+            assert str(diag.get("strategy", "")) in ("full_range", "density_window"), diag
+            assert int(diag.get("total_words", 0)) > 0, diag
             status = http_status("GET", f"/api/v1/jobs/{job_id}/artifacts/douyin_vertical")
             assert status == 200
 

@@ -65,14 +65,14 @@ def run_lyrics_export_job(
             job_store.update(job_id, {"status": "cancelled", "current_step": "cancelled", "error": None})
             return
 
-        artifacts: Dict[str, str] = {
+        artifacts: Dict[str, Any] = {
             "official_lyrics": str(result.official_lyrics_path),
             "lyrics_confirmed": str(result.confirmed_lyrics_path),
             "aligned_subtitles": str(result.subtitles_path),
             "job_log": str(result.log_path),
         }
         if video_file is not None:
-            trimmed_master, burnin_srt, trim_start = run_trim_and_shift_for_burnin(
+            trimmed_master, burnin_srt, trim_start, trim_diag = run_trim_and_shift_for_burnin(
                 input_video=video_file,
                 words_file=words_file,
                 aligned_subtitles_srt=result.subtitles_path,
@@ -93,6 +93,7 @@ def run_lyrics_export_job(
                 "start_sec": round(float(trim_start), 3),
                 "target_min_sec": float(target_min_sec),
                 "target_max_sec": float(target_max_sec),
+                "diagnostics": trim_diag,
             }
 
         if is_cancelled():

@@ -65,7 +65,7 @@ def run() -> None:
             words_file=words,
             output_root=out_root,
         )
-        trimmed_master, burnin_srt, _trim_start = run_trim_and_shift_for_burnin(
+        trimmed_master, burnin_srt, _trim_start, trim_diag = run_trim_and_shift_for_burnin(
             input_video=video,
             words_file=words,
             aligned_subtitles_srt=lyrics_result.subtitles_path,
@@ -81,6 +81,8 @@ def run() -> None:
         assert export_path.stat().st_size > 10_000, "export file unexpectedly small"
         assert trimmed_master.is_file()
         assert burnin_srt.is_file()
+        assert isinstance(trim_diag, dict)
+        assert "strategy" in trim_diag
 
     print("Vertical slice test passed.")
 
