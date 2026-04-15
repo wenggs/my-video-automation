@@ -194,6 +194,21 @@ def run() -> None:
         )
         assert status == 200, payload
         assert "dance" not in (payload.get("tags_suggested") or []), payload
+        # accept-all should move all suggested -> confirmed and clear suggested
+        _ = http_json(
+            "PATCH",
+            f"/api/v1/library/videos/{VIDEO_ID}/tags/suggested",
+            {"tags": ["tagA", "tagB"]},
+        )
+        status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/tags/suggestions/accept-all",
+            {},
+        )
+        assert status == 200, payload
+        assert "tagA" in (payload.get("tags_confirmed") or []), payload
+        assert "tagB" in (payload.get("tags_confirmed") or []), payload
+        assert payload.get("tags_suggested") == [], payload
 
         # 1) PUT lyrics import
         status, payload = http_json(

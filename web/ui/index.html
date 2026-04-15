@@ -786,17 +786,31 @@
       };
 
       window.__addAllSuggestedTags = function() {
-        const arr = Array.isArray(window.__tagSuggestions) ? window.__tagSuggestions : [];
-        const current = parseTagsCsv(document.getElementById('fTagsCsv').value || '');
-        for (const x of arr) {
-          const t = String(x || '').trim();
-          if (t && !current.includes(t)) current.push(t);
+        const msg = document.getElementById('msg');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        if (!videoAssetId) {
+          msg.textContent = 'Accept all failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
         }
-        document.getElementById('fTagsCsv').value = current.join(', ');
-        window.__tagSuggestions = [];
-        window.__tagSuggestionDetails = {};
-        renderTagSuggestions();
-        savePrefs();
+        fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/tags/suggestions/accept-all`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json; charset=utf-8' },
+          body: JSON.stringify({}),
+        }).then((data) => {
+          const confirmed = Array.isArray(data.tags_confirmed) ? data.tags_confirmed : [];
+          const suggested = Array.isArray(data.tags_suggested) ? data.tags_suggested : [];
+          document.getElementById('fTagsCsv').value = confirmed.join(', ');
+          window.__tagSuggestions = suggested.map((x) => String(x));
+          window.__tagSuggestionDetails = {};
+          renderTagSuggestions();
+          msg.textContent = 'Accepted all suggested tags.';
+          msg.className = 'ok';
+          savePrefs();
+        }).catch((e) => {
+          msg.textContent = 'Accept all failed: ' + e.message;
+          msg.className = 'err';
+        });
       };
 
       window.__clearSuggestedTags = function() {

@@ -63,6 +63,7 @@ Response now includes:
 - Suggested chips support fine-grained actions:
   - `+` accept into confirmed channel
   - `x` reject from suggested channel
+  - `Add all` calls server-side `POST /tags/suggestions/accept-all` (atomic move + clear)
 
 ### 2.1 Import official lyrics
 

@@ -236,3 +236,22 @@ class LyricsStore:
             encoding="utf-8",
         )
         return next_state
+
+    def accept_all_suggested_tags(self, video_id: str) -> Dict[str, Any]:
+        state = self.get_tags(video_id)
+        confirmed = [str(x) for x in state.get("tags_confirmed", [])]
+        suggested = [str(x) for x in state.get("tags_suggested", [])]
+        for t in suggested:
+            if t and t not in confirmed:
+                confirmed.append(t)
+        next_state = {
+            "video_asset_id": video_id,
+            "tags_confirmed": confirmed,
+            "tags_suggested": [],
+            "updated_at": _utc_now(),
+        }
+        self._tags_file(video_id).write_text(
+            json.dumps(next_state, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        return next_state

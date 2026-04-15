@@ -488,6 +488,25 @@ class ApiHandler(BaseHTTPRequestHandler):
                 self._send_json(http_status_for_app_error(e.code), e.to_dict())
             return
 
+        # POST /api/v1/library/videos/{id}/tags/suggestions/accept-all
+        m_tag_accept_all = re.match(r"^/api/v1/library/videos/([^/]+)/tags/suggestions/accept-all$", po)
+        if m_tag_accept_all:
+            video_id = m_tag_accept_all.group(1)
+            try:
+                state = self.store.accept_all_suggested_tags(video_id)
+                self._send_json(
+                    HTTPStatus.OK,
+                    {
+                        "video_asset_id": video_id,
+                        "tags_confirmed": state.get("tags_confirmed", []),
+                        "tags_suggested": state.get("tags_suggested", []),
+                        "updated_at": state.get("updated_at"),
+                    },
+                )
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+
         # POST /api/v1/library/videos/{id}/tags/suggest
         m_tag_suggest = re.match(r"^/api/v1/library/videos/([^/]+)/tags/suggest$", po)
         if m_tag_suggest:
