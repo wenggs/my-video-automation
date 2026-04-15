@@ -409,7 +409,12 @@
             <td>
               <div><b>douyin_vertical:</b> ${hasVideo ? '<code>yes</code>' : '<code>missing</code>'}</div>
               ${hasVideo ? `<div style="margin-top:6px;"><a href="${videoUrl}" target="_blank">Open video</a> · <a href="${videoUrl}" download>Download</a></div>` : ''}
-              ${trimSummary ? `<div class="muted" style="margin-top:6px;">${escapeHtml(trimSummary)}</div>` : ''}
+              ${trimSummary ? `
+                <div class="muted" style="margin-top:6px;">${escapeHtml(trimSummary)}</div>
+                <div class="row" style="margin:6px 0 0;">
+                  <button onclick='window.__copyJson("${job.id}","trim diagnostics", "${toAttrJson({ trim_window: trimWindow, diagnostics: trimDiag })}")'>Copy trim diagnostics JSON</button>
+                </div>
+              ` : ''}
               <div><b>publish.douyin:</b> <code>${douyinState || '-'}</code></div>
               ${preparedUrl ? `<div style="margin-top:6px;"><a href="${preparedUrl}" target="_blank">Open prepared draft</a></div>` : ''}
               ${fallbackErr ? `<div class="muted" style="margin-top:6px;">fallback: <code>${fallbackErr.code || ''}</code> ${fallbackErr.message || ''}</div>` : ''}

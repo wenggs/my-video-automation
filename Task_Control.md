@@ -97,4 +97,5 @@
 - [x] Phase 23.2：自动剪辑片段选择优化（由“固定前段”升级为“内容密度优先”）+ 选择策略回归
 - [x] Phase 23.3：自动剪辑可观测性增强（trim 选择诊断字段落盘 + 回归）
 - [x] Phase 23.4：UI 展示 trim diagnostics 摘要（strategy/words/start/end）
+- [x] Phase 23.5：UI 增加 trim diagnostics JSON 一键复制（trim-only）
 
