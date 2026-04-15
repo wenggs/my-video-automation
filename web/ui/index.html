@@ -334,6 +334,15 @@
         const warnings = Array.isArray(job.preflight_warnings) ? job.preflight_warnings : [];
         const runErrorJson = runError ? escapeHtml(JSON.stringify(runError, null, 2)) : '';
         const prepareErrorJson = err ? escapeHtml(JSON.stringify(err, null, 2)) : '';
+        const trimWindow = (artifacts && typeof artifacts.trim_window === 'object' && artifacts.trim_window) ? artifacts.trim_window : {};
+        const trimDiag = (trimWindow && typeof trimWindow.diagnostics === 'object' && trimWindow.diagnostics) ? trimWindow.diagnostics : {};
+        const trimStrategy = String(trimDiag.strategy || '');
+        const trimWords = Number(trimDiag.selected_word_count || 0);
+        const trimStart = trimWindow.start_sec != null ? Number(trimWindow.start_sec) : null;
+        const trimEnd = trimDiag.selected_end_sec != null ? Number(trimDiag.selected_end_sec) : null;
+        const trimSummary = trimStrategy
+          ? `trim: ${trimStrategy}, words=${Number.isFinite(trimWords) ? trimWords : 0}${Number.isFinite(trimStart) ? `, start=${trimStart.toFixed(2)}s` : ''}${Number.isFinite(trimEnd) ? `, end=${trimEnd.toFixed(2)}s` : ''}`
+          : '';
         const history = Array.isArray(douyin.history) ? douyin.history : [];
         const timelineType = String(document.getElementById('fTimelineType').value || 'all');
         const timelineKeyword = String(document.getElementById('fTimelineKeyword').value || '').trim().toLowerCase();
@@ -400,6 +409,7 @@
             <td>
               <div><b>douyin_vertical:</b> ${hasVideo ? '<code>yes</code>' : '<code>missing</code>'}</div>
               ${hasVideo ? `<div style="margin-top:6px;"><a href="${videoUrl}" target="_blank">Open video</a> · <a href="${videoUrl}" download>Download</a></div>` : ''}
+              ${trimSummary ? `<div class="muted" style="margin-top:6px;">${escapeHtml(trimSummary)}</div>` : ''}
               <div><b>publish.douyin:</b> <code>${douyinState || '-'}</code></div>
               ${preparedUrl ? `<div style="margin-top:6px;"><a href="${preparedUrl}" target="_blank">Open prepared draft</a></div>` : ''}
               ${fallbackErr ? `<div class="muted" style="margin-top:6px;">fallback: <code>${fallbackErr.code || ''}</code> ${fallbackErr.message || ''}</div>` : ''}

@@ -54,6 +54,7 @@ playwright install chromium
 - Job edit target window override on create (`POST /api/v1/jobs` supports `target_min_sec` / `target_max_sec`, default 30/60)
 - Trim window selection now prefers content-dense segments (instead of always cutting from the beginning)
 - Job artifacts now include trim diagnostics (`artifacts.trim_window.diagnostics`: strategy/selected words/candidate windows)
+- UI job rows now show trim diagnostics summary (`strategy`, selected words, start/end seconds)
 - Auto lyrics bootstrap from video (`POST /api/v1/library/videos/{id}/lyrics/auto-generate`)
 - Auto subtitles concurrency guard (`429 AUTO_SUBTITLES_BUSY` when in-flight ASR limit reached)
 - Auto subtitles best-effort cancellation by `request_id` (`/lyrics/auto-generate/cancel`)
