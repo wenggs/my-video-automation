@@ -48,20 +48,6 @@
           <option value="confirm">confirm only</option>
         </select>
       </label>
-      <label class="muted">trim strategy
-        <select id="fTrimStrategy" style="margin-left:4px;">
-          <option value="all">all</option>
-          <option value="full_range">full_range</option>
-          <option value="density_window">density_window</option>
-        </select>
-      </label>
-      <label class="muted">trim words >=
-        <input id="fTrimWordsMin" style="margin-left:4px; width:80px;" type="number" min="0" step="1" placeholder="e.g. 20" />
-      </label>
-      <label class="muted">low-signal if words <
-        <input id="fTrimWarnBelow" style="margin-left:4px; width:80px;" type="number" min="1" step="1" value="8" />
-      </label>
-      <label class="muted"><input type="checkbox" id="fTrimLowSignalOnly" /> only low-signal</label>
       <label class="muted">timeline keyword
         <input id="fTimelineKeyword" style="margin-left:4px; width:150px;" placeholder="e.g. prepare_failed" />
       </label>
@@ -71,6 +57,25 @@
       <label class="muted"><input type="checkbox" id="fAutoPoll" checked /> auto refresh (2s)</label>
       <span class="muted">UI uses backend stubs for upload (open/confirm transitions only).</span>
     </div>
+    <details class="card" style="margin-top: 8px;">
+      <summary><b>Trim QA filters</b> <span class="muted">(strategy / words threshold / low-signal)</span></summary>
+      <div class="row" style="margin-top: 8px;">
+        <label class="muted">trim strategy
+          <select id="fTrimStrategy" style="margin-left:4px;">
+            <option value="all">all</option>
+            <option value="full_range">full_range</option>
+            <option value="density_window">density_window</option>
+          </select>
+        </label>
+        <label class="muted">trim words >=
+          <input id="fTrimWordsMin" style="margin-left:4px; width:80px;" type="number" min="0" step="1" placeholder="e.g. 20" />
+        </label>
+        <label class="muted">low-signal if words <
+          <input id="fTrimWarnBelow" style="margin-left:4px; width:80px;" type="number" min="1" step="1" value="8" />
+        </label>
+        <label class="muted"><input type="checkbox" id="fTrimLowSignalOnly" /> only low-signal</label>
+      </div>
+    </details>
     <div id="timelineFilterChips" class="row" style="margin-top:6px;"></div>
 
     <div class="card" style="margin-top: 12px;">

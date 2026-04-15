@@ -60,6 +60,7 @@ playwright install chromium
 - UI top bar supports `trim words >= N` filter for low-signal clip triage
 - UI highlights low-signal trim rows when `selected_word_count` is below configurable threshold
 - UI supports `only low-signal` toggle (filtered by current warning threshold)
+- Trim-related QA filters are grouped in a collapsible `Trim QA filters` panel
 - Auto lyrics bootstrap from video (`POST /api/v1/library/videos/{id}/lyrics/auto-generate`)
 - Auto subtitles concurrency guard (`429 AUTO_SUBTITLES_BUSY` when in-flight ASR limit reached)
 - Auto subtitles best-effort cancellation by `request_id` (`/lyrics/auto-generate/cancel`)

@@ -102,4 +102,5 @@
 - [x] Phase 23.7：UI 增加 trim 命中词数下限筛选（`selected_word_count >= N`）
 - [x] Phase 23.8：UI 增加 low-signal 预警高亮（`selected_word_count < N`）
 - [x] Phase 23.9：UI 增加 only-low-signal 快速过滤开关
+- [x] Phase 23.10：UI Trim QA 筛选面板收口（可折叠分组）
 
