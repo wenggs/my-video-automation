@@ -94,6 +94,8 @@
         <label class="muted">target_min_sec <input id="fTargetMinSec" style="width:90px;" value="30" /></label>
         <label class="muted">target_max_sec <input id="fTargetMaxSec" style="width:90px;" value="60" /></label>
         <label class="muted">tags(csv) <input id="fTagsCsv" style="width:220px;" placeholder="concert, live, duet" /></label>
+        <label class="muted">meta title <input id="fMetaTitle" style="width:260px;" placeholder="generated title" /></label>
+        <label class="muted">meta hashtags(csv) <input id="fMetaHashtags" style="width:220px;" placeholder="#音乐,#现场" /></label>
         <label class="muted">quality
           <select id="fAsrQuality" style="margin-left:4px;">
             <option value="fast">fast</option>
@@ -108,6 +110,7 @@
         <button id="btnCancelAutoLyrics">Cancel auto lyrics</button>
         <button id="btnLoadTags">Load tags</button>
         <button id="btnSuggestTags">Suggest tags</button>
+        <button id="btnSuggestMeta">Suggest metadata</button>
         <button id="btnSaveTags">Save tags</button>
         <button id="btnCreateJob">Create</button>
       </div>
@@ -115,6 +118,8 @@
       <div class="muted">current auto request_id: <code id="autoRequestId">-</code></div>
       <div id="autoInfo" class="muted" style="margin-top:6px;"></div>
       <div id="tagsInfo" class="muted" style="margin-top:6px;"></div>
+      <textarea id="fMetaDescription" style="width:100%; min-height:70px; margin-top:6px;" placeholder="generated description"></textarea>
+      <div id="metaInfo" class="muted" style="margin-top:6px;"></div>
       <div id="tagSuggestBox" class="muted" style="margin-top:6px;">suggestions: none</div>
       <div id="tagRecentBox" class="muted" style="margin-top:6px;">recent tags: none</div>
     </div>
@@ -197,6 +202,9 @@
             targetMinSec: document.getElementById('fTargetMinSec').value || '30',
             targetMaxSec: document.getElementById('fTargetMaxSec').value || '60',
             tagsCsv: document.getElementById('fTagsCsv').value || '',
+            metaTitle: document.getElementById('fMetaTitle').value || '',
+            metaDescription: document.getElementById('fMetaDescription').value || '',
+            metaHashtags: document.getElementById('fMetaHashtags').value || '',
             recentTags: Array.isArray(window.__recentTags) ? window.__recentTags : [],
             asrQuality: document.getElementById('fAsrQuality').value || 'standard',
             asrModel: document.getElementById('fAsrModel').value || 'small',
@@ -227,6 +235,9 @@
         if (prefs.targetMinSec) document.getElementById('fTargetMinSec').value = String(prefs.targetMinSec);
         if (prefs.targetMaxSec) document.getElementById('fTargetMaxSec').value = String(prefs.targetMaxSec);
         if (prefs.tagsCsv) document.getElementById('fTagsCsv').value = String(prefs.tagsCsv);
+        if (prefs.metaTitle) document.getElementById('fMetaTitle').value = String(prefs.metaTitle);
+        if (prefs.metaDescription) document.getElementById('fMetaDescription').value = String(prefs.metaDescription);
+        if (prefs.metaHashtags) document.getElementById('fMetaHashtags').value = String(prefs.metaHashtags);
         if (Array.isArray(prefs.recentTags)) window.__recentTags = prefs.recentTags.map((x) => String(x));
         if (prefs.asrQuality) document.getElementById('fAsrQuality').value = String(prefs.asrQuality);
         if (prefs.asrModel) document.getElementById('fAsrModel').value = String(prefs.asrModel);
@@ -851,6 +862,35 @@
         }
       }
 
+      async function suggestMetadata() {
+        const msg = document.getElementById('msg');
+        const info = document.getElementById('metaInfo');
+        const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
+        if (!videoAssetId) {
+          msg.textContent = 'Suggest metadata failed: video_asset_id is required.';
+          msg.className = 'err';
+          return;
+        }
+        try {
+          const data = await fetchJson(API_BASE + `/library/videos/${encodeURIComponent(videoAssetId)}/metadata/suggest`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json; charset=utf-8' },
+            body: JSON.stringify({ platform: 'douyin' }),
+          });
+          document.getElementById('fMetaTitle').value = String(data.title || '');
+          document.getElementById('fMetaDescription').value = String(data.description || '');
+          const hashtags = Array.isArray(data.hashtags) ? data.hashtags : [];
+          document.getElementById('fMetaHashtags').value = hashtags.join(', ');
+          info.textContent = `metadata generated: hashtags=${hashtags.length}`;
+          msg.textContent = 'Metadata suggested.';
+          msg.className = 'ok';
+          savePrefs();
+        } catch (e) {
+          msg.textContent = 'Suggest metadata failed: ' + e.message;
+          msg.className = 'err';
+        }
+      }
+
       window.__acceptSuggestedTag = async function(tag) {
         const msg = document.getElementById('msg');
         const videoAssetId = String(document.getElementById('fVideoAssetId').value || '').trim();
@@ -1193,6 +1233,9 @@
       document.getElementById('fTargetMinSec').addEventListener('input', savePrefs);
       document.getElementById('fTargetMaxSec').addEventListener('input', savePrefs);
       document.getElementById('fTagsCsv').addEventListener('input', savePrefs);
+      document.getElementById('fMetaTitle').addEventListener('input', savePrefs);
+      document.getElementById('fMetaDescription').addEventListener('input', savePrefs);
+      document.getElementById('fMetaHashtags').addEventListener('input', savePrefs);
       document.getElementById('fAsrQuality').addEventListener('change', savePrefs);
       document.getElementById('fAsrModel').addEventListener('input', savePrefs);
       document.getElementById('fAsrLanguage').addEventListener('input', savePrefs);
@@ -1206,6 +1249,7 @@
       document.getElementById('btnSaveRules').addEventListener('click', saveReviewRules);
       document.getElementById('btnLoadTags').addEventListener('click', loadTags);
       document.getElementById('btnSuggestTags').addEventListener('click', suggestVideoTags);
+      document.getElementById('btnSuggestMeta').addEventListener('click', suggestMetadata);
       document.getElementById('btnSaveTags').addEventListener('click', saveTags);
       document.getElementById('btnCreateJob').addEventListener('click', createJob);
       applyPrefs();

@@ -167,6 +167,15 @@ def run() -> None:
         assert status == 200, payload
         assert any(x in (payload.get("tags_suggested") or []) for x in ("concert", "live")), payload
         status, payload = http_json(
+            "POST",
+            f"/api/v1/library/videos/{VIDEO_ID}/metadata/suggest",
+            {"platform": "douyin"},
+        )
+        assert status == 200, payload
+        assert isinstance(payload.get("title"), str) and payload.get("title"), payload
+        assert isinstance(payload.get("description"), str) and payload.get("description"), payload
+        assert isinstance(payload.get("hashtags"), list) and len(payload.get("hashtags")) > 0, payload
+        status, payload = http_json(
             "PATCH",
             f"/api/v1/library/videos/{VIDEO_ID}/tags/suggested",
             {"tags": ["music"]},

@@ -65,6 +65,13 @@ Response now includes:
   - `x` reject from suggested channel
   - `Add all` calls server-side `POST /tags/suggestions/accept-all` (atomic move + clear)
 
+Suggest metadata (title/description/hashtags, Douyin-first template):
+
+```powershell
+$body=@{ platform='douyin' } | ConvertTo-Json
+Invoke-RestMethod -Method Post -Uri 'http://127.0.0.1:8011/api/v1/library/videos/demo-video-001/metadata/suggest' -ContentType 'application/json' -Body $body
+```
+
 ### 2.1 Import official lyrics
 
 ```powershell

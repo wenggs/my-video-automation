@@ -104,4 +104,5 @@
 - [x] Phase 23.9：UI 增加 only-low-signal 快速过滤开关
 - [x] Phase 23.10：UI Trim QA 筛选面板收口（可折叠分组）
 - [x] Phase 23.11：UI 增加 Reset Trim QA（仅重置 trim 过滤）
+- [x] Phase 24.1：Metadata 最小建议能力（API + UI 回填 title/description/hashtags）
 

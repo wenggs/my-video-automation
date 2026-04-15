@@ -22,6 +22,7 @@ from common.paths import resolve_safe_under_root
 from services.auto_subtitles_service import auto_generate_subtitles_from_video
 from services.job_execution import run_lyrics_export_job
 from services.library_scan import scan_video_files
+from services.metadata_suggest import suggest_metadata
 from services.tag_suggest import suggest_tags_with_reasons
 from services.upload_douyin_service import prepare_douyin_upload
 from storage.job_store import JobStore
@@ -527,6 +528,25 @@ class ApiHandler(BaseHTTPRequestHandler):
                         "source": {"video_relative_path": rel, "hint_text": hint},
                     },
                 )
+            except AppError as e:
+                self._send_json(http_status_for_app_error(e.code), e.to_dict())
+            return
+
+        # POST /api/v1/library/videos/{id}/metadata/suggest
+        m_meta_suggest = re.match(r"^/api/v1/library/videos/([^/]+)/metadata/suggest$", po)
+        if m_meta_suggest:
+            video_id = m_meta_suggest.group(1)
+            try:
+                payload = self._read_json()
+                platform = str(payload.get("platform", "douyin")).strip() or "douyin"
+                tags_state = self.store.get_tags(video_id)
+                data = suggest_metadata(
+                    video_asset_id=video_id,
+                    tags_confirmed=tags_state.get("tags_confirmed", []),
+                    tags_suggested=tags_state.get("tags_suggested", []),
+                    platform=platform,
+                )
+                self._send_json(HTTPStatus.OK, data)
             except AppError as e:
                 self._send_json(http_status_for_app_error(e.code), e.to_dict())
             return
