@@ -96,6 +96,7 @@ Top filters also include `trim words >= N` (based on `selected_word_count`) to i
 UI also supports a low-signal warning threshold (`low-signal if words < N`), which highlights matching job rows.
 `only low-signal` toggle can further narrow the list to just rows below current threshold.
 These trim controls are grouped under collapsible `Trim QA filters` to keep the main toolbar compact.
+Use `Reset Trim QA` to clear only trim-related controls without touching timeline/status/tag filters.
 
 Pipeline errors (missing words file, bad video path, export failure, etc.) are reflected in the job record: **`status`** = `failed` and **`error`**: `{ code, message, details }`. **`GET /jobs/{id}`** stays **200** for an existing job so clients can always read the final state.
 

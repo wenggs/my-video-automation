@@ -74,6 +74,7 @@
           <input id="fTrimWarnBelow" style="margin-left:4px; width:80px;" type="number" min="1" step="1" value="8" />
         </label>
         <label class="muted"><input type="checkbox" id="fTrimLowSignalOnly" /> only low-signal</label>
+        <button id="btnResetTrimQa">Reset Trim QA</button>
       </div>
     </details>
     <div id="timelineFilterChips" class="row" style="margin-top:6px;"></div>
@@ -576,6 +577,16 @@
         document.getElementById('fTrimLowSignalOnly').checked = false;
         document.getElementById('fTimelineKeyword').value = '';
         document.getElementById('fTimelineLatestFailChain').checked = false;
+        savePrefs();
+        syncUrlFilters();
+        refresh();
+      }
+
+      function resetTrimQaFilters() {
+        document.getElementById('fTrimStrategy').value = 'all';
+        document.getElementById('fTrimWordsMin').value = '';
+        document.getElementById('fTrimWarnBelow').value = '8';
+        document.getElementById('fTrimLowSignalOnly').checked = false;
         savePrefs();
         syncUrlFilters();
         refresh();
@@ -1173,6 +1184,7 @@
       document.getElementById('fTimelineKeyword').addEventListener('input', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('fTimelineLatestFailChain').addEventListener('change', () => { savePrefs(); syncUrlFilters(); refresh(); });
       document.getElementById('btnClearTimelineFilters').addEventListener('click', clearTimelineFilters);
+      document.getElementById('btnResetTrimQa').addEventListener('click', resetTrimQaFilters);
       document.getElementById('btnCopyTroubleshootLink').addEventListener('click', copyTroubleshootLink);
       document.getElementById('fAutoPoll').addEventListener('change', setupAutoRefresh);
       document.getElementById('fVideoAssetId').addEventListener('input', savePrefs);
